@@ -13,6 +13,26 @@ only appended to.
 
 ---
 
+## Quick start
+
+One command brings up the whole stand — database, schema migration and the service — on a
+machine with nothing but Docker installed:
+
+```bash
+cp .env.example .env            # edit POSTGRES_PASSWORD before first run
+docker compose up -d --build --scale web=1   # or --scale web=2 for the load-balanced stand
+```
+
+Wait a few seconds, then check it's alive:
+
+```bash
+curl http://localhost:8080/healthz   # {"status": "ok"}
+```
+
+No other setup step is required; the schema is created automatically by the `migrate` service.
+
+---
+
 ## Stage 1 — Design
 
 ### 1.1 Table schema
