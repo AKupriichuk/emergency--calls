@@ -76,44 +76,477 @@ Any unhandled database/ORM error is caught at the service boundary and turned in
 
 ## Stage 2 — Service
 
-*(to be filled in after implementation)*
+Implemented with FastAPI (async), SQLAlchemy 2.0 (async, `asyncpg` driver) and Alembic. Code
+layout: `app/config.py` (env-var settings), `app/db.py` (engine/session), `app/models.py` (ORM),
+`app/schemas.py` (Pydantic request/response models, including the `arrived_at > received_at`
+validator), `app/crud.py` (data access), `app/routers/emergency_calls.py` (the 6 endpoints),
+`app/main.py` (app wiring, the `X-Instance-Id` response header middleware used later in Stage 6,
+and the exception handlers that turn `RequestValidationError` → `400` and anything unhandled →
+generic `500`).
+
+Local test suite (`tests/`, `pytest.ini` adds the repo root to `sys.path`), run against an
+in-memory SQLite database via a dependency override — no Docker required for this part:
+
+```
+$ .venv/bin/pytest tests/ -v
+...
+tests/test_crud_flow.py::test_full_crud_cycle PASSED
+tests/test_crud_flow.py::test_list_filters_by_urgency_category PASSED
+tests/test_crud_flow.py::test_healthz_returns_ok PASSED
+tests/test_crud_flow.py::test_get_missing_returns_404 PASSED
+tests/test_crud_flow.py::test_put_missing_returns_404 PASSED
+tests/test_models.py::test_emergency_calls_table_has_expected_columns PASSED
+tests/test_models.py::test_urgency_category_is_indexed PASSED
+tests/test_validation.py::test_create_rejects_urgency_category_out_of_range PASSED
+tests/test_validation.py::test_create_rejects_arrival_before_receipt PASSED
+tests/test_validation.py::test_create_ignores_client_supplied_id PASSED
+tests/test_validation.py::test_get_malformed_id_returns_400_not_422 PASSED
+tests/test_validation.py::test_list_rejects_limit_above_max PASSED
+======================= 12 passed in 0.05s ========================
+```
+
+A pure-SQLite test only proves the FastAPI/Pydantic layer, not that `asyncpg` + Alembic actually
+work against real PostgreSQL, so that was additionally verified against a throwaway
+`postgres:16-alpine` container: `alembic upgrade head` created the table and the
+`ix_emergency_calls_urgency_category` index exactly as designed in Stage 1, `GET /healthz`
+returned `200 {"status": "ok"}`, and `POST /emergency-calls` returned `201` with a
+server-generated `id`. This surfaced one real bug: `alembic.ini` needed `prepend_sys_path = .`
+for `migrations/env.py` to be able to `import app` at all — without it, `alembic upgrade` failed
+with `ModuleNotFoundError: No module named 'app'` even though the same import worked fine under
+pytest (pytest's `pythonpath = .` setting isn't something Alembic reads).
 
 ## Stage 3 — Image
 
-*(to be filled in after implementation)*
+`Dockerfile` (multi-stage: `builder` installs into `--prefix=/install` with a compiler
+available, `final` is a fresh `python:3.12-alpine` that copies only the built site-packages in —
+it never runs `apk add gcc`, so no compiler ever exists in it):
+
+```dockerfile
+FROM python:3.12-alpine AS builder
+WORKDIR /build
+RUN apk add --no-cache gcc musl-dev libffi-dev
+COPY requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+FROM python:3.12-alpine AS final
+WORKDIR /app
+COPY --from=builder /install /usr/local
+COPY app ./app
+COPY migrations ./migrations
+COPY alembic.ini .
+ENV PYTHONUNBUFFERED=1
+EXPOSE 8000
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+`.dockerignore`:
+
+```
+__pycache__/
+*.pyc
+.git
+.gitignore
+.env
+.venv/
+tests/
+loadgen/
+analysis/
+results/
+docs/
+README.md
+```
+
+Measurements:
+- **Final image size: 195 MB** (`docker images emergency-calls-service:latest`).
+- **No build tools in the final image**: `docker run --rm emergency-calls-service:latest sh -c "which gcc cc"` exits non-zero (`gcc`/`cc` not found).
 
 ## Stage 4 — Stand
 
-*(to be filled in after implementation)*
+`docker-compose.yml` (three services the assignment requires — `db`, scalable `web`, `nginx` —
+plus a one-off `migrate` service that applies the schema before `web` ever starts; only `nginx`
+publishes a host port, `db`/`web` use `expose`):
+
+```yaml
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    expose:
+      - "5432"
+
+  migrate:
+    build: .
+    image: emergency-calls-service:latest
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build: .
+    image: emergency-calls-service:latest
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      PAGINATION_DEFAULT_LIMIT: ${PAGINATION_DEFAULT_LIMIT}
+      PAGINATION_MAX_LIMIT: ${PAGINATION_MAX_LIMIT}
+    expose:
+      - "8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 384M
+
+  nginx:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "8080:80"
+    depends_on:
+      - web
+
+volumes:
+  pg_data:
+```
+
+`nginx/nginx.conf` — `resolver 127.0.0.11` (Docker's embedded DNS) plus `set $upstream` before
+`proxy_pass` forces Nginx to re-resolve the `web` service name on every request instead of
+caching the IP once at config load, which is what lets a replica added via `--scale` actually
+receive traffic without restarting Nginx:
+
+```nginx
+server {
+    listen 80;
+
+    resolver 127.0.0.11 valid=10s;
+
+    location / {
+        set $upstream web:8000;
+        proxy_pass http://$upstream;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+
+**Startup time** (`docker compose up -d --scale web=1` to the first `200` on `/healthz`, images
+already built, volumes empty, 3 runs): 9.20s, 9.40s, 9.71s — **median 9.40s**.
+
+**Persistence verification**: created a record, `docker compose down` (no `-v`) then
+`docker compose up -d` — the record was still present (`pg_data` is a named volume). Then
+`docker compose down -v` — `GET /emergency-calls` came back `{"total": 0, ...}` and `/healthz`
+was `200` again with no manual steps, confirming the `migrate` service reapplies the schema
+automatically on a clean volume.
 
 ## Stage 5 — Load (single instance)
 
-*(to be filled in after implementation)*
+Generator self-check against `loadgen/noop_server.py` (stdlib-only no-op HTTP server, no
+dependency on the service under test) at the highest tested intensity:
+
+```
+$ python loadgen/generator.py selfcheck --url http://localhost:9000 --rate 500 --duration 10
+target rate: 500.0 req/s, achieved rate: 500.0 req/s, sent: 5000, errors: 0 (0.0%)
+```
+
+The generator reaches 500 req/s cleanly against a no-op target (10 CPU cores on the test
+machine), so the generator itself is not the ceiling in what follows. (This self-check also
+caught a real bug during development: the first version of `selfcheck` divided completed-request
+*count* by duration without checking status codes, so it kept printing "achieved 500 req/s" even
+after the no-op server had already been stopped — fast connection-refused failures completed
+just as quickly as real 200s. Fixed by reporting an explicit error count/rate and warning when
+it's nonzero; see the git history on `loadgen/generator.py`.)
+
+Seeded 100 records (`python loadgen/seed.py --base-url http://localhost:8080 --count 100`) and
+ran the full open-loop series against `GET /emergency-calls/{sampled id}` on **1 web instance**:
+
+```
+for rate in 10 100 500; do
+  for run in 1 2 3; do
+    python loadgen/generator.py open \
+      --url "http://localhost:8080/emergency-calls/${SEED_ID}" \
+      --rate "$rate" --warmup 10 --duration 30 \
+      --out "results/open_${rate}rps_1inst_run${run}.csv"
+  done
+done
+```
+
+All 9 runs completed (raw CSVs in `results/`). The generator and the service run on the same
+8-core/10-core machine for this lab — at the highest intensity they compete for the same cores,
+which is disclosed here as the assignment requires.
 
 ## Stage 6 — Two replicas
 
-*(to be filled in after implementation)*
+Scaled the same stand with `docker compose up -d --scale web=2` — no file edits — and reran the
+identical series against the balancer. Distribution across replicas confirmed independently of
+Nginx's own logs, using each response's `X-Instance-Id` header (container hostname) recorded by
+the generator:
+
+```
+Counter({'e07a37c6d864': 1518, 'a9d90d2f55db': 1482})   # 100 rps run, 3000 measured requests
+```
+
+Both replica hostnames receive a comparable share of traffic.
+
+### Combined measurement table (median of 3 runs per configuration, 30s measured + 10s warm-up)
+
+| Instances | Target RPS | Achieved RPS | p50 (ms) | p95 (ms) | p99 (ms) | Error rate |
+|---|---|---|---|---|---|---|
+| 1 | 10 | 10.0 | 66.4 | 129.2 | 138.6 | 0.0% |
+| 2 | 10 | 10.0 | 19.5 | 68.0 | 127.2 | 0.0% |
+| 1 | 100 | 100.0 | 32.3 | 51.1 | 58.9 | 0.0% |
+| 2 | 100 | 100.0 | 10.3 | 48.9 | 67.6 | 0.0% |
+| 1 | 500 | 500.0 | 115.6 | 250.6 | 386.7 | 0.43% |
+| 2 | 500 | 500.0 | 4.3 | 136.4 | 223.6 | 0.0% |
+
+**Conclusion on where the service stopped keeping up:** the "achieved RPS" column never falls
+short of the target, at any level, on either instance count — the generator schedules sends in
+advance and the whole 15,000-request 500rps/30s window still completed within ~30.1s even on a
+single 0.5-CPU-limited instance (checked directly from the raw timestamps, not inferred). So,
+honestly, this specific workload (an indexed `GET` by primary key) never saturates even one
+0.5 CPU replica within the tested 10/100/500 RPS range — the assignment explicitly allows for
+this outcome ("if throughput didn't double, name the component that stayed shared"). The real,
+measurable cost of running on 1 instance instead of 2 shows up in **tail latency and error
+rate**, not throughput: at 500 RPS, p99 drops from 386.7ms to 223.6ms and the only nonzero error
+rate in the whole series (0.43%) disappears once a second instance is available. The component
+that stayed shared between both configurations — and therefore the thing actually responsible
+for the 1-instance numbers being worse — is the single PostgreSQL instance and the single
+0.5-CPU budget each `web` replica is capped at individually; adding a second replica doubles the
+CPU budget actually available to serve requests even though neither replica count was ever
+throughput-bound by it.
 
 ## Stage 7 — Calculations
 
-*(to be filled in after implementation)*
+**Speedup and Karp-Flatt metric**, at the 500 RPS level (chosen because it's the only level with
+any observable difference between configurations):
+
+S = achieved(2 instances) / achieved(1 instance) = 500.0 / 500.0 = **1.000**
+
+e = (1/S − 1/N) / (1 − 1/N), N = 2 → e = (1/1.000 − 0.5) / 0.5 = **1.000**
+
+Read literally, e = 1.0 says "fully serial, no parallel benefit" — but that conclusion is an
+artifact of using *achieved throughput* as the signal when this particular workload never pushes
+either configuration's throughput below its target (see Stage 6's conclusion). The formula has
+nothing to measure here because there is no throughput gap to attribute to serial work. The
+shared component the metric is nominally trying to name is still real and still identifiable
+directly from the data (single Postgres instance, per-replica 0.5 CPU cap) — it's just visible in
+latency/error-rate, not in this particular ratio, for this particular workload and RPS range.
+
+**Little's Law check**, at 100 RPS / 1 instance (`results/open_100rps_1inst_run1.csv`):
+
+L = λ · W, λ = 100.00 req/s, W = 0.0277 s → predicted L = **2.766**
+
+Measured L (exact time-average of the in-flight-request count, via an event sweep over every
+request's `sent_ts`/`done_ts` pair — see "rejected approaches" below for why this isn't a fixed
+grid sample) = **2.771**
+
+Discrepancy: **0.2%** — Little's Law holds. (The other two 100rps/1inst runs independently gave
+0.2% and 0.1% discrepancies.)
+
+**Closed-loop comparison**, at 500 RPS / 1 instance (the level with the highest latency and the
+only nonzero error rate in the open-loop series — the closest this series got to a limit):
+concurrency for the closed-loop run was set to 61, the Little's-Law-measured L at that same
+open-loop level.
+
+| Mode | Achieved rate | p95 |
+|---|---|---|
+| Open loop (target 500 rps) | 500.0 req/s | 250.6 ms |
+| Closed loop (concurrency = 61) | 665.4 req/s | 110.5 ms |
+
+The closed loop shows a *lower* p95 on the exact same service, and even a higher nominal
+throughput — not because the service is actually faster, but because a closed-loop generator
+only ever has 61 requests in flight at once and immediately re-sends the moment one finishes;
+it can never build the queue that an open-loop arrival process builds once requests arrive
+faster than they're served; so whatever backlog existed under real (open-loop) 500 rps load
+simply cannot form here. The closed-loop number describes the generator's own self-limiting
+behavior at that concurrency, not the service's behavior under the load it would actually see
+from independent real clients.
 
 ## Stage 8 — Additional requirement
 
-*(to be filled in after implementation)*
+Variant 13's additional requirement: **all configuration only through environment variables**.
+
+Every configurable value in the service traces to exactly one source, with nothing hardcoded:
+
+| Variable | Consumed by | 
+|---|---|
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | `db` service directly, and composed into `DATABASE_URL` for `migrate`/`web` in `docker-compose.yml` |
+| `PAGINATION_DEFAULT_LIMIT`, `PAGINATION_MAX_LIMIT` | `app/config.py: Settings`, used by the list endpoint |
+
+`grep -rn "POSTGRES_\|PAGINATION_" --include='*.py' --include='*.yml' app/ docker-compose.yml`
+shows every occurrence is a `Settings` field name or a `${VAR}` reference — no literal values.
+The only fixed, non-configurable piece is the in-network hostname `db:5432` inside the composed
+`DATABASE_URL` — a network-topology detail of this compose file, not a secret or a tunable.
+
+**Live demonstration** (`.env` only, no code or image change): changed `PAGINATION_DEFAULT_LIMIT`
+from `50` to `5`, then `docker compose up -d --force-recreate web migrate`:
+
+```
+$ curl .../emergency-calls   # (via urllib, see git history) after the .env edit
+{"items": [...], "total": 101, "limit": 5, "offset": 0}
+```
+
+Restored `.env` to `50` and recreated again — `"limit": 50` came back. No file other than `.env`
+was touched between the two checks.
 
 ## Stage 9 — Verification log
 
-*(to be filled in after implementation)*
+Full cycle against the live stand (`BASE=http://localhost:8080`):
+
+| Step | Call | Status |
+|---|---|---|
+| 1 | `POST /emergency-calls` (call_number=JOURNAL-1) | `201`, body includes server-generated `id` |
+| 2 | `GET /emergency-calls?limit=5` | `200`, `{"total": 101, "limit": 5, ...}` |
+| 3 | `GET /emergency-calls/{id}` | `200`, record matches what was created |
+| 4 | `PUT /emergency-calls/{id}` (outcome → `deceased`) | `200`, `outcome` updated |
+| 5 | `DELETE /emergency-calls/{id}` (first time) | `204 No Content` |
+| 6 | `DELETE /emergency-calls/{id}` (second time, same id) | `404 {"error": "emergency call not found", "field": null}` |
+
+Status code sequence: **201, 200, 200, 200, 204, 404** — matches the spec exactly, including the
+non-idempotent delete.
+
+Persistence re-check: before `docker compose down`, `GET /emergency-calls?limit=1` reported
+`"total": 100`. After `docker compose down` (no `-v`) and `docker compose up -d`, the same query
+still reported `"total": 100` — the named volume survived. After `docker compose down -v` and
+`docker compose up -d --scale web=1`, the same query reported `"total": 0` and `GET /healthz`
+was `200` — the stand rebuilt its schema from an empty volume with no manual steps.
 
 ## Rejected approaches
 
-*(at least 3, to be filled in as decisions are made)*
+1. **Running `alembic upgrade head` from each `web` container's own entrypoint**, instead of a
+   dedicated `migrate` service — rejected because two instances starting simultaneously
+   (`--scale web=2`) would race on the same migration with no locking between them, risking a
+   corrupted or doubly-applied schema change. A single one-off `migrate` service that `web`
+   depends on via `service_completed_successfully` removes the race entirely: by the time any
+   `web` container starts, the schema is already settled.
+2. **Hand-writing separate `web_1`/`web_2` service blocks** in `docker-compose.yml` for the
+   two-replica stand, instead of `docker compose up --scale web=N` — rejected because it directly
+   violates the assignment's requirement that instance count be a single launch parameter, not a
+   copy-pasted block, and it would need a second compose file just to keep the 1-instance case
+   working.
+3. **Parsing the Nginx access log to prove request distribution between replicas**, instead of an
+   `X-Instance-Id` response header plus a `Counter` over the generator's own CSV — rejected
+   because it needed no log-format assumptions, no Nginx volume mount for log files, and reused
+   data the generator already collected for the latency calculations anyway.
+4. **Sampling in-flight request count on a fixed time grid for Little's Law**, instead of an exact
+   event sweep — this was the *first* implementation, and it was wrong, not just rejected for
+   style: with a 50ms grid step and ~27ms average latency, many short in-flight intervals fell
+   entirely between two grid samples and were never counted, understating measured L by over
+   100% (1.20 vs. a true ≈2.77). Replaced with an exact sweep over sorted `+1`/`-1` events, which
+   integrates the in-flight-count step function exactly instead of approximating it — now within
+   0.1-0.3% of the predicted λW on every run. Kept here as a rejected approach because it's a
+   concrete example of a measurement method that looked reasonable but silently produced a wrong
+   number; it was only caught by sanity-checking against the independently-computed predicted L.
 
 ## Use of generative models
 
-*(to be filled in)*
+The service code, Dockerfile, Compose stand, Nginx config, load generator and analysis script
+were written with Claude (Claude Code). Every piece was reviewed against the assignment's
+explicit constraints line by line (status codes, no `422`, no bare arrays, no leaked DB errors,
+no client-supplied `id`, no published web ports, non-idempotent delete) and then actually run —
+the pytest suite, a real `postgres:16-alpine` container, the built Docker image, the full
+Compose stand at 1 and 2 instances, and the complete 18-run load series — rather than trusting
+generated numbers. Every number in this report comes from a command that was actually executed
+during this session, not an estimate. Two real bugs were found this way and are documented
+above rather than hidden: the missing `prepend_sys_path` in `alembic.ini` (Stage 2) and the
+grid-sampling undercount in the Little's Law calculation (rejected approaches, Stage 7) — both
+were caught by running the actual numbers and noticing they didn't add up, not by inspection.
 
 ## Control questions
 
-*(to be answered at the end)*
+1. **Why does `PUT` replace the record fully here, and how would `PATCH` differ?** `PUT` in this
+   service requires the full `EmergencyCallCreate`-shaped body and overwrites every field via
+   `crud.update_call`'s `for field, value in data.model_dump().items(): setattr(...)` — there's no
+   way to omit a field and keep its old value. `PATCH` would instead accept a body with every
+   field optional and only overwrite the fields actually present, which needs a different schema
+   (all-optional) and different update logic (skip unset fields) — more moving parts for a
+   feature this assignment doesn't ask for.
+2. **What status code should creating a record with an already-existing id return, and why?**
+   This service never lets the question arise: the client cannot supply an `id` at all (it isn't
+   a field on `EmergencyCallCreate`), so there is no "already exists" case to handle for creation.
+   If a schema did accept a client-supplied id that collided with an existing row, the correct
+   code would be `409 Conflict`, not `400` — the request is well-formed, it just conflicts with
+   current server state.
+3. **What persists in an image layer, and why does Dockerfile instruction order affect rebuild
+   time?** Each `RUN`/`COPY` creates a layer that's cached by the hash of its inputs. This
+   `Dockerfile` copies `requirements.txt` and runs `pip install` *before* copying `app/` — so
+   editing application code only invalidates the final `COPY app ./app` layer, not the dependency
+   install; if `COPY app ./app` came first, any code edit would invalidate everything after it
+   and force a full reinstall on every rebuild.
+4. **What happens to the data after `down`, after `down -v`, and after manually removing the db
+   container?** `docker compose down` removes containers and the network but leaves the named
+   volume `pg_data` untouched — verified directly in Stage 9 (100 records survived). `down -v`
+   additionally removes `pg_data`, so the next `up` starts from an empty database and `migrate`
+   recreates the schema from scratch — also verified (`"total": 0` afterward). Manually removing
+   just the `db` container with `docker rm` (without `-v`) behaves like a crash: the named volume
+   still exists on disk and a new `db` container created against the same volume (e.g. via
+   `docker compose up` again) sees the same data.
+5. **Why doesn't a plain `depends_on` guarantee the database is ready to accept connections?**
+   Plain `depends_on` (no `condition:`) only waits for the dependency's container process to
+   start, not for the service inside it to be ready — Postgres's own startup (initdb, recovery,
+   listening on its socket) takes longer than "container started". This stand instead declares
+   `depends_on: db: condition: service_healthy`, backed by a `pg_isready` healthcheck, so `web`
+   and `migrate` only start once Postgres is actually accepting connections.
+6. **How does `EXPOSE` differ from publishing a port, and how does `web` reach the database
+   without the database's port being published to the host?** `EXPOSE` is documentation/metadata
+   inside the image about which port the container listens on — it does not open anything.
+   Publishing a port (`ports: "8080:80"` on `nginx` in this stand) is what actually forwards a
+   host port into the container. `db` and `web` only use `expose` (or nothing at all, for `db`),
+   never `ports` — they are reachable from other containers over the Compose-managed Docker
+   network by service name (`db`, `web`) on their container port, with nothing exposed to the
+   host; only `nginx`'s `8080:80` is reachable from outside Docker at all.
+7. **How does a fixed-arrival-rate generator differ from a fixed-virtual-user generator, and why
+   does the latter hide overload?** A fixed-virtual-user (closed-loop) generator keeps a constant
+   number of requests in flight and only sends a new one once an old one finishes — so if the
+   service slows down, the generator automatically slows its own sending rate to match, and
+   reported latency stays deceptively flat. A fixed-arrival-rate (open-loop) generator — what
+   `loadgen/generator.py`'s `open` mode implements — computes every send time in advance from the
+   start of the run and never waits for a response before scheduling the next send, so a slowing
+   service shows up directly as growing latency and (eventually) a falling achieved rate, exactly
+   because the arrival process doesn't adapt to the server. Stage 7's closed-loop comparison
+   demonstrates this directly: the same service reports p95=110.5ms under closed-loop load at
+   concurrency 61, versus p95=250.6ms under the open-loop load that concurrency was sampled from.
+8. **What changed after adding a second web instance, and what stayed shared?** Achieved
+   throughput didn't change (both configurations already hit every target rate — see Stage 6),
+   but p99 latency at 500 rps fell from 386.7ms to 223.6ms and the only nonzero error rate in the
+   whole series (0.43%) disappeared. What stayed shared between the two configurations: the
+   single PostgreSQL instance behind both web replicas, and the fact that each `web` replica is
+   still individually capped at 0.5 CPU — the second replica adds CPU budget, it doesn't relieve
+   any single-Postgres contention.
+9. **What does the measured Karp-Flatt value mean here, and how would it change if the database
+   weren't shared across both instances?** The measured e = 1.000 at 500 rps literally reads as
+   "fully serial", but per Stage 7 that's an artifact of achieved throughput never actually
+   dropping below target for either configuration in this workload/RPS range — there's no
+   throughput gap for the formula to attribute to serial work, not a real claim that 2 instances
+   provide zero benefit (latency and error-rate numbers prove otherwise). If the database were
+   not shared (e.g. each replica had its own, unsynchronized data store), there would be nothing
+   left to serialize access to and, at an RPS level that actually did saturate 1 instance's CPU,
+   e would trend toward 0 — meaning genuinely parallelizable work, since a single shared
+   bottleneck resource (the database) is exactly what Karp-Flatt's "serial fraction" is measuring
+   in this topology.
+10. **Why does response time grow faster than intensity as a service approaches its throughput
+    limit?** Below the limit, each request is served about as fast as it arrives and queueing is
+    negligible, so latency stays roughly flat as intensity rises. Near the limit, the server
+    starts completing requests only slightly faster than they arrive, so a growing backlog of
+    queued-but-not-yet-served requests accumulates; each additional request then waits behind an
+    ever-longer queue in addition to its own service time, so latency grows combinatorially
+    relative to the small remaining spare capacity — visible directly in this data as p99 growing
+    from 58.9ms at 100 rps to 386.7ms at 500 rps on 1 instance, a 5x rate increase producing a
+    6.6x p99 increase.
