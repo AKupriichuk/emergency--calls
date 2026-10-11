@@ -159,8 +159,18 @@ def run_selfcheck(url: str, rate: float, duration_s: float) -> None:
     run_open_loop(url, rate, warmup_s=0, duration_s=duration_s, out_path=out_path)
     with open(out_path, newline="") as fh:
         rows = list(csv.DictReader(fh))
+    errors = sum(1 for r in rows if r["status_code"] != "200")
     achieved = len(rows) / duration_s
-    print(f"target rate: {rate} req/s, achieved rate: {achieved:.1f} req/s, sent: {len(rows)}")
+    error_rate = errors / len(rows) if rows else 1.0
+    print(
+        f"target rate: {rate} req/s, achieved rate: {achieved:.1f} req/s, "
+        f"sent: {len(rows)}, errors: {errors} ({error_rate:.1%})"
+    )
+    if error_rate > 0:
+        print(
+            "WARNING: non-zero error rate -- achieved rate above does not mean "
+            "successful 200 responses; check that the target server is actually up."
+        )
     os.remove(out_path)
 
 
