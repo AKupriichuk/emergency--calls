@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.git
+.gitignore
+.env
+.venv/
+tests/
+loadgen/
+analysis/
+results/
+docs/
+README.md
