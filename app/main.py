@@ -6,10 +6,12 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.errors import ApiError
+from app.metrics import setup_metrics
 from app.routers.emergency_calls import router
 
 app = FastAPI(title="Emergency Calls Service")
 app.include_router(router)
+setup_metrics(app)
 
 
 class InstanceHeaderMiddleware(BaseHTTPMiddleware):
