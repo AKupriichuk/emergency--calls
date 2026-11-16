@@ -18,7 +18,7 @@ services:
   migrate:
     build: .
     image: emergency-calls-service:latest
-    command: ["alembic", "upgrade", "head"]
+    command: ["python", "migrations/cli.py", "upgrade", "head"]
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
     depends_on:

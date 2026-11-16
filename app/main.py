@@ -27,8 +27,9 @@ async def validation_exception_handler(
     request: Request, exc: RequestValidationError
 ) -> JSONResponse:
     first_error = exc.errors()[0]
-    field = first_error["loc"][-1] if first_error["loc"] else None
-    return JSONResponse(status_code=400, content={"error": first_error["msg"], "field": str(field)})
+    loc = first_error["loc"]
+    field = loc[-1] if len(loc) >= 2 and isinstance(loc[-1], str) else None
+    return JSONResponse(status_code=400, content={"error": first_error["msg"], "field": field})
 
 
 @app.exception_handler(ApiError)

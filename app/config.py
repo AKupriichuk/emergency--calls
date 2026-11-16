@@ -7,8 +7,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(case_sensitive=False)
 
     database_url: str
-    pagination_default_limit: int = 50
-    pagination_max_limit: int = 200
+    pagination_default_limit: int
+    pagination_max_limit: int
 
 
 @lru_cache

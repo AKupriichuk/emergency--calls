@@ -14,6 +14,17 @@ def test_create_rejects_arrival_before_receipt(client):
     assert response.status_code == 400
 
 
+def test_create_handles_mixed_timezone_awareness(client):
+    payload = valid_payload(received_at="2026-01-01T12:00:00+00:00", arrived_at="2026-01-01T12:10:00")
+    response = client.post("/emergency-calls", json=payload)
+    assert response.status_code == 201
+
+    payload = valid_payload(received_at="2026-01-01T12:00:00+00:00", arrived_at="2026-01-01T11:00:00")
+    response = client.post("/emergency-calls", json=payload)
+    assert response.status_code == 400
+    assert response.json()["field"] == "arrived_at"
+
+
 def test_create_ignores_client_supplied_id(client):
     payload = valid_payload()
     payload["id"] = "11111111-1111-1111-1111-111111111111"
