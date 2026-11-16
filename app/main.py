@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import get_settings
+from app.db import engine
 from app.errors import ApiError
 from app.metrics import setup_metrics
 from app.routers.emergency_calls import router
@@ -18,6 +19,11 @@ setup_metrics(app)
 @app.get("/livez")
 async def livez() -> Response:
     return Response(status_code=200)
+
+
+@app.on_event("shutdown")
+async def _dispose_engine() -> None:
+    await engine.dispose()
 
 
 class PodHeaderMiddleware(BaseHTTPMiddleware):
