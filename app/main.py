@@ -1,10 +1,11 @@
 import socket
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from app.config import get_settings
 from app.errors import ApiError
 from app.metrics import setup_metrics
 from app.routers.emergency_calls import router
@@ -14,14 +15,19 @@ app.include_router(router)
 setup_metrics(app)
 
 
-class InstanceHeaderMiddleware(BaseHTTPMiddleware):
+@app.get("/livez")
+async def livez() -> Response:
+    return Response(status_code=200)
+
+
+class PodHeaderMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
-        response.headers["X-Instance-Id"] = socket.gethostname()
+        response.headers["X-Pod"] = get_settings().pod_name or socket.gethostname()
         return response
 
 
-app.add_middleware(InstanceHeaderMiddleware)
+app.add_middleware(PodHeaderMiddleware)
 
 
 @app.exception_handler(RequestValidationError)

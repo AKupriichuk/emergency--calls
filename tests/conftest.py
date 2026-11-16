@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 os.environ.setdefault("PAGINATION_DEFAULT_LIMIT", "50")
 os.environ.setdefault("PAGINATION_MAX_LIMIT", "200")
+os.environ.setdefault("DB_POOL_SIZE", "10")
 
 import pytest
 from fastapi.testclient import TestClient

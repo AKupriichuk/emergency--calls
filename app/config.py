@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     database_url: str
     pagination_default_limit: int
     pagination_max_limit: int
+    db_pool_size: int
+    pod_name: str | None = None
 
 
 @lru_cache
