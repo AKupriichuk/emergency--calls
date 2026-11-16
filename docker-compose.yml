@@ -21,6 +21,9 @@ services:
     command: ["python", "migrations/cli.py", "upgrade", "head"]
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      PAGINATION_DEFAULT_LIMIT: ${PAGINATION_DEFAULT_LIMIT}
+      PAGINATION_MAX_LIMIT: ${PAGINATION_MAX_LIMIT}
+      DB_POOL_SIZE: ${DB_POOL_SIZE}
     depends_on:
       db:
         condition: service_healthy
@@ -32,6 +35,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       PAGINATION_DEFAULT_LIMIT: ${PAGINATION_DEFAULT_LIMIT}
       PAGINATION_MAX_LIMIT: ${PAGINATION_MAX_LIMIT}
+      DB_POOL_SIZE: ${DB_POOL_SIZE}
     expose:
       - "8000"
     depends_on:
@@ -54,5 +58,16 @@ services:
     depends_on:
       - web
 
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - web
+
 volumes:
   pg_data:
+  prometheus_data:
