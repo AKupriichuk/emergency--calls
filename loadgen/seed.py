@@ -25,19 +25,18 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", required=True)
     parser.add_argument("--count", type=int, default=100)
-    parser.add_argument("--out", default="results/seed_id.txt")
+    parser.add_argument("--out", default="results/seed_ids.txt")
     args = parser.parse_args()
 
-    first_id = None
+    ids = []
     for i in range(args.count):
         response = requests.post(f"{args.base_url}/emergency-calls", json=build_payload(i), timeout=10)
         response.raise_for_status()
-        if first_id is None:
-            first_id = response.json()["id"]
+        ids.append(response.json()["id"])
 
     with open(args.out, "w") as fh:
-        fh.write(first_id)
-    print(f"seeded {args.count} records, sample id: {first_id}")
+        fh.write("\n".join(ids) + "\n")
+    print(f"seeded {args.count} records, ids written to {args.out}")
 
 
 if __name__ == "__main__":

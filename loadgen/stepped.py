@@ -7,10 +7,28 @@ so it can be unit-tested without a server or a clock.
 
 from __future__ import annotations
 
+import argparse
+import csv
+import dataclasses
+import multiprocessing as mp
+import os
+import random
 import statistics
+import tempfile
+import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 
+import requests
+
 from analysis.compute_metrics import _percentile
+
+WARMUP_RATE = 200.0
+WARMUP_DURATION_S = 10
+STEP_DURATION_S = 20
+STEP_INCREMENT = 200.0
+TRANSIENT_S = 5.0
+WINDOW_S = 15.0
 
 
 @dataclass
@@ -104,3 +122,148 @@ def should_stop(
         return consecutive_below >= 2, consecutive_below
 
     return False, 0
+
+
+def _do_stepped_request(
+    session: requests.Session, url: str, timeout_s: float, target_time: float
+) -> RequestResult:
+    try:
+        response = session.get(url, timeout=timeout_s)
+        return RequestResult(target_time, time.time(), response.status_code, "")
+    except requests.Timeout:
+        return RequestResult(target_time, time.time(), 0, "timeout")
+    except requests.RequestException as exc:
+        return RequestResult(target_time, time.time(), 0, str(exc))
+
+
+def _write_phase_part(path: str, results: list[RequestResult]) -> None:
+    with open(path, "w", newline="") as fh:
+        writer = csv.writer(fh)
+        writer.writerow(["scheduled_ts", "done_ts", "status_code", "error"])
+        for r in results:
+            writer.writerow([r.scheduled_ts, r.done_ts, r.status_code, r.error])
+
+
+def _read_phase_part(path: str) -> list[RequestResult]:
+    with open(path, newline="") as fh:
+        return [
+            RequestResult(
+                float(row["scheduled_ts"]), float(row["done_ts"]), int(row["status_code"]), row["error"]
+            )
+            for row in csv.DictReader(fh)
+        ]
+
+
+def _phase_worker(
+    url_template: str,
+    ids: list[str],
+    worker_rate: float,
+    duration_s: float,
+    start_time: float,
+    timeout_s: float,
+    out_path: str,
+) -> None:
+    session = requests.Session()
+    count = max(1, int(worker_rate * duration_s))
+    results: list[RequestResult] = []
+
+    with ThreadPoolExecutor(max_workers=max(4, int(worker_rate / 5) + 1)) as pool:
+        futures = []
+        for seq in range(count):
+            target_time = start_time + seq / worker_rate
+            sleep_for = target_time - time.time()
+            if sleep_for > 0:
+                time.sleep(sleep_for)
+            url = url_template.format(id=random.choice(ids))
+            futures.append(pool.submit(_do_stepped_request, session, url, timeout_s, target_time))
+        for future in futures:
+            results.append(future.result())
+
+    _write_phase_part(out_path, results)
+
+
+def run_phase(
+    url_template: str,
+    ids: list[str],
+    rate: float,
+    duration_s: float,
+    start_time: float,
+    timeout_s: float = 5.0,
+) -> list[RequestResult]:
+    num_workers = os.cpu_count() or 1
+    worker_rate = rate / num_workers
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        part_paths = [os.path.join(tmp_dir, f"part{i}.csv") for i in range(num_workers)]
+        processes = [
+            mp.Process(
+                target=_phase_worker,
+                args=(url_template, ids, worker_rate, duration_s, start_time, timeout_s, part_paths[i]),
+            )
+            for i in range(num_workers)
+        ]
+        for p in processes:
+            p.start()
+        for p in processes:
+            p.join()
+
+        rows: list[RequestResult] = []
+        for part_path in part_paths:
+            rows.extend(_read_phase_part(part_path))
+        return rows
+
+
+def _append_summaries(out_path: str, summaries: list[SecondSummary], elapsed_s: int, write_header: bool) -> None:
+    fieldnames = [f.name for f in dataclasses.fields(SecondSummary)]
+    with open(out_path, "a", newline="") as fh:
+        writer = csv.DictWriter(fh, fieldnames=fieldnames)
+        if write_header:
+            writer.writeheader()
+        for s in summaries:
+            row = dataclasses.asdict(s)
+            row["second"] = elapsed_s + s.second
+            writer.writerow(row)
+
+
+def run_stepped(url_template: str, ids: list[str], out_path: str, g_limit: float | None) -> None:
+    start_time = time.time() + 1.0
+    elapsed = 0
+
+    rows = run_phase(url_template, ids, WARMUP_RATE, WARMUP_DURATION_S, start_time)
+    summaries = aggregate_phase(rows, start_time, WARMUP_DURATION_S, WARMUP_RATE)
+    _append_summaries(out_path, summaries, elapsed, write_header=True)
+    elapsed += WARMUP_DURATION_S
+
+    consecutive_below = 0
+    step_index = 0
+    while True:
+        target_rate = WARMUP_RATE + STEP_INCREMENT * step_index
+        phase_start = start_time + elapsed
+        rows = run_phase(url_template, ids, target_rate, STEP_DURATION_S, phase_start)
+        summaries = aggregate_phase(rows, phase_start, STEP_DURATION_S, target_rate)
+        _append_summaries(out_path, summaries, elapsed, write_header=False)
+        elapsed += STEP_DURATION_S
+
+        step_avg, _ = window_average_achieved(summaries, TRANSIENT_S, WINDOW_S)
+        stop, consecutive_below = should_stop(step_avg, target_rate, g_limit, consecutive_below)
+        step_index += 1
+        if stop:
+            return
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Stepped-load profile generator")
+    parser.add_argument("--url-template", required=True)
+    parser.add_argument("--ids-file", required=True)
+    parser.add_argument("--out", required=True)
+    parser.add_argument("--g-limit", type=float, default=None)
+    args = parser.parse_args()
+
+    with open(args.ids_file) as fh:
+        ids = [line.strip() for line in fh if line.strip()]
+
+    run_stepped(args.url_template, ids, args.out, args.g_limit)
+
+
+if __name__ == "__main__":
+    main()
