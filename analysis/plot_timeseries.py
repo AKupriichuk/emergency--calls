@@ -171,6 +171,71 @@ def plot_usl_fit(
     plt.close(fig)
 
 
+def _m3_throttle_fraction_by_time(
+    prometheus_url: str, start: float, end: float
+) -> dict[float, float]:
+    """mean-across-instances throttled-period fraction per timestamp."""
+    throttled = query_range(
+        prometheus_url, "increase(cgroup_cpu_throttled_periods_total[15s])", start, end, step=5
+    )
+    periods = query_range(
+        prometheus_url, "increase(cgroup_cpu_periods_total[15s])", start, end, step=5
+    )
+
+    def by_instance_time(result: dict) -> dict[str, dict[float, float]]:
+        out: dict[str, dict[float, float]] = defaultdict(dict)
+        for s in result["data"]["result"]:
+            instance = s["metric"].get("instance", "?")
+            for ts, v in s["values"]:
+                out[instance][ts] = float(v)
+        return out
+
+    throttled_by = by_instance_time(throttled)
+    periods_by = by_instance_time(periods)
+
+    fractions_by_time: dict[float, list[float]] = defaultdict(list)
+    for instance, periods_ts in periods_by.items():
+        for ts, period_count in periods_ts.items():
+            if period_count <= 0:
+                continue
+            throttled_count = throttled_by.get(instance, {}).get(ts, 0.0)
+            fractions_by_time[ts].append(throttled_count / period_count)
+
+    return {ts: sum(vals) / len(vals) for ts, vals in fractions_by_time.items() if vals}
+
+
+def plot_m3_vs_rate(
+    runs: list[tuple[int, str, str, float]], out_path: str
+) -> None:
+    """runs: list of (N, csv_path, prometheus_url, run_start)."""
+    fig, ax = plt.subplots(figsize=(8, 6))
+    for n, csv_path, prometheus_url, run_start in runs:
+        rows = load_csv_rows(csv_path)
+        duration_s = int(rows[-1]["second"]) + 1
+        fractions_by_time = _m3_throttle_fraction_by_time(
+            prometheus_url, run_start, run_start + duration_s
+        )
+
+        points = []
+        for ts, frac in sorted(fractions_by_time.items()):
+            offset = round(ts - run_start)
+            if 0 <= offset < len(rows):
+                target = float(rows[offset]["target_rate"])
+                points.append((target, frac))
+        points.sort()
+        xs = [p[0] for p in points]
+        ys = [p[1] for p in points]
+        ax.plot(xs, ys, marker=".", label=f"N={n}")
+
+    ax.set_xlabel("target rate (req/s)")
+    ax.set_ylabel("throttled fraction (nr_throttled / nr_periods)")
+    ax.set_title("М3: CPU-throttled fraction vs. target intensity")
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Plot a stepped run's time series against Prometheus data")
     parser.add_argument("--csv", required=True)
