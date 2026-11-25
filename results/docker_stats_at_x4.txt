@@ -1,0 +1,486 @@
+=== 2026-11-25T10:44:00Z (t+1x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          0.16%     57.75MiB / 384MiB
+lab2-metrics-scalability-web-3          1.17%     61.73MiB / 384MiB
+lab2-metrics-scalability-web-2          0.14%     64.61MiB / 384MiB
+lab2-metrics-scalability-web-1          0.13%     69.38MiB / 384MiB
+lab2-metrics-scalability-db-1           1.87%     76.46MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.07%     104.4MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        0.00%     8.203MiB / 7.75GiB
+=== 2026-11-25T10:44:05Z (t+2x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          0.80%     57.75MiB / 384MiB
+lab2-metrics-scalability-web-3          0.16%     61.73MiB / 384MiB
+lab2-metrics-scalability-web-2          0.12%     64.61MiB / 384MiB
+lab2-metrics-scalability-web-1          0.19%     69.63MiB / 384MiB
+lab2-metrics-scalability-db-1           0.00%     76.18MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.00%     104.4MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        0.00%     8.203MiB / 7.75GiB
+=== 2026-11-25T10:44:09Z (t+3x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          22.28%    59.59MiB / 384MiB
+lab2-metrics-scalability-web-3          12.55%    61.76MiB / 384MiB
+lab2-metrics-scalability-web-2          13.33%    64.63MiB / 384MiB
+lab2-metrics-scalability-web-1          20.04%    69.41MiB / 384MiB
+lab2-metrics-scalability-db-1           8.39%     91.18MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.54%     104.4MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        5.18%     9.887MiB / 7.75GiB
+=== 2026-11-25T10:44:13Z (t+4x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          14.29%    59.84MiB / 384MiB
+lab2-metrics-scalability-web-3          12.24%    62.02MiB / 384MiB
+lab2-metrics-scalability-web-2          13.88%    64.07MiB / 384MiB
+lab2-metrics-scalability-web-1          13.67%    69.39MiB / 384MiB
+lab2-metrics-scalability-db-1           5.81%     91.15MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.08%     104.4MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        5.53%     9.781MiB / 7.75GiB
+=== 2026-11-25T10:44:17Z (t+5x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          14.65%    59.64MiB / 384MiB
+lab2-metrics-scalability-web-3          14.35%    61.51MiB / 384MiB
+lab2-metrics-scalability-web-2          14.25%    64.05MiB / 384MiB
+lab2-metrics-scalability-web-1          16.11%    69.36MiB / 384MiB
+lab2-metrics-scalability-db-1           6.15%     91.17MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.22%     104.4MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        6.15%     9.543MiB / 7.75GiB
+=== 2026-11-25T10:44:21Z (t+6x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          10.87%    59.96MiB / 384MiB
+lab2-metrics-scalability-web-3          12.51%    61.5MiB / 384MiB
+lab2-metrics-scalability-web-2          11.34%    64.07MiB / 384MiB
+lab2-metrics-scalability-web-1          11.68%    69.36MiB / 384MiB
+lab2-metrics-scalability-db-1           5.33%     91.4MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.00%     104.4MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        5.24%     10.35MiB / 7.75GiB
+=== 2026-11-25T10:44:25Z (t+7x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          12.53%    59.66MiB / 384MiB
+lab2-metrics-scalability-web-3          12.97%    61.52MiB / 384MiB
+lab2-metrics-scalability-web-2          12.31%    64.09MiB / 384MiB
+lab2-metrics-scalability-web-1          13.26%    69.34MiB / 384MiB
+lab2-metrics-scalability-db-1           5.14%     91.2MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.00%     104.4MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        5.40%     10.18MiB / 7.75GiB
+=== 2026-11-25T10:44:29Z (t+8x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          12.20%    59.68MiB / 384MiB
+lab2-metrics-scalability-web-3          13.30%    61.73MiB / 384MiB
+lab2-metrics-scalability-web-2          12.15%    64.05MiB / 384MiB
+lab2-metrics-scalability-web-1          14.29%    69.35MiB / 384MiB
+lab2-metrics-scalability-db-1           6.89%     91.2MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.14%     104.4MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        4.61%     10.34MiB / 7.75GiB
+=== 2026-11-25T10:44:33Z (t+9x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          15.39%    59.7MiB / 384MiB
+lab2-metrics-scalability-web-3          9.57%     61.47MiB / 384MiB
+lab2-metrics-scalability-web-2          13.58%    64.05MiB / 384MiB
+lab2-metrics-scalability-web-1          11.17%    69.34MiB / 384MiB
+lab2-metrics-scalability-db-1           5.26%     91.4MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.00%     104.4MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        5.52%     10.18MiB / 7.75GiB
+=== 2026-11-25T10:44:37Z (t+10x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          11.94%    59.8MiB / 384MiB
+lab2-metrics-scalability-web-3          16.58%    61.52MiB / 384MiB
+lab2-metrics-scalability-web-2          13.51%    64.09MiB / 384MiB
+lab2-metrics-scalability-web-1          14.52%    69.32MiB / 384MiB
+lab2-metrics-scalability-db-1           7.68%     91.71MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.11%     104.4MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        6.97%     11.11MiB / 7.75GiB
+=== 2026-11-25T10:44:41Z (t+11x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          14.81%    59.85MiB / 384MiB
+lab2-metrics-scalability-web-3          17.19%    61.77MiB / 384MiB
+lab2-metrics-scalability-web-2          17.75%    64.11MiB / 384MiB
+lab2-metrics-scalability-web-1          15.45%    69.36MiB / 384MiB
+lab2-metrics-scalability-db-1           7.74%     91.24MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.04%     104.4MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        6.50%     11.83MiB / 7.75GiB
+=== 2026-11-25T10:44:45Z (t+12x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          16.09%    59.85MiB / 384MiB
+lab2-metrics-scalability-web-3          15.82%    61.47MiB / 384MiB
+lab2-metrics-scalability-web-2          13.87%    64.1MiB / 384MiB
+lab2-metrics-scalability-web-1          16.12%    69.35MiB / 384MiB
+lab2-metrics-scalability-db-1           7.22%     91.24MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.06%     104.4MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        6.34%     11.85MiB / 7.75GiB
+=== 2026-11-25T10:44:50Z (t+13x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          15.66%    60.14MiB / 384MiB
+lab2-metrics-scalability-web-3          14.27%    61.48MiB / 384MiB
+lab2-metrics-scalability-web-2          15.36%    64.1MiB / 384MiB
+lab2-metrics-scalability-web-1          16.05%    69.37MiB / 384MiB
+lab2-metrics-scalability-db-1           7.73%     91.24MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.00%     104.4MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        6.34%     12.11MiB / 7.75GiB
+=== 2026-11-25T10:44:54Z (t+14x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          13.33%    59.84MiB / 384MiB
+lab2-metrics-scalability-web-3          12.79%    61.49MiB / 384MiB
+lab2-metrics-scalability-web-2          15.34%    64.06MiB / 384MiB
+lab2-metrics-scalability-web-1          15.14%    69.34MiB / 384MiB
+lab2-metrics-scalability-db-1           7.44%     91.24MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.09%     104.4MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        6.09%     12.32MiB / 7.75GiB
+=== 2026-11-25T10:44:58Z (t+15x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          18.75%    60.3MiB / 384MiB
+lab2-metrics-scalability-web-3          19.89%    61.48MiB / 384MiB
+lab2-metrics-scalability-web-2          19.18%    64.34MiB / 384MiB
+lab2-metrics-scalability-web-1          18.59%    69.36MiB / 384MiB
+lab2-metrics-scalability-db-1           11.04%    91.26MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.05%     104.4MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        8.55%     12.93MiB / 7.75GiB
+=== 2026-11-25T10:45:02Z (t+16x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          19.26%    60.34MiB / 384MiB
+lab2-metrics-scalability-web-3          18.76%    61.51MiB / 384MiB
+lab2-metrics-scalability-web-2          20.39%    64.08MiB / 384MiB
+lab2-metrics-scalability-web-1          18.62%    69.63MiB / 384MiB
+lab2-metrics-scalability-db-1           11.78%    91.29MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.02%     104.4MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        8.41%     12.49MiB / 7.75GiB
+=== 2026-11-25T10:45:06Z (t+17x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          20.27%    60.27MiB / 384MiB
+lab2-metrics-scalability-web-3          19.73%    61.52MiB / 384MiB
+lab2-metrics-scalability-web-2          18.80%    64.08MiB / 384MiB
+lab2-metrics-scalability-web-1          20.55%    69.36MiB / 384MiB
+lab2-metrics-scalability-db-1           12.62%    91.25MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.05%     104.4MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        9.10%     12.82MiB / 7.75GiB
+=== 2026-11-25T10:45:10Z (t+18x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          18.99%    60.25MiB / 384MiB
+lab2-metrics-scalability-web-3          17.75%    61.5MiB / 384MiB
+lab2-metrics-scalability-web-2          19.22%    64.38MiB / 384MiB
+lab2-metrics-scalability-web-1          18.04%    69.38MiB / 384MiB
+lab2-metrics-scalability-db-1           11.08%    92MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.00%     104.4MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        8.35%     13.48MiB / 7.75GiB
+=== 2026-11-25T10:45:14Z (t+19x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          17.24%    60.28MiB / 384MiB
+lab2-metrics-scalability-web-3          18.77%    61.48MiB / 384MiB
+lab2-metrics-scalability-web-2          15.81%    64.05MiB / 384MiB
+lab2-metrics-scalability-web-1          19.99%    69.38MiB / 384MiB
+lab2-metrics-scalability-db-1           10.94%    91.28MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.07%     104.4MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        8.61%     13.11MiB / 7.75GiB
+=== 2026-11-25T10:45:18Z (t+20x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          24.13%    60.36MiB / 384MiB
+lab2-metrics-scalability-web-3          25.56%    61.55MiB / 384MiB
+lab2-metrics-scalability-web-2          24.06%    64.07MiB / 384MiB
+lab2-metrics-scalability-web-1          25.07%    69.38MiB / 384MiB
+lab2-metrics-scalability-db-1           14.57%    91.3MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.00%     104.4MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        13.81%    13.47MiB / 7.75GiB
+=== 2026-11-25T10:45:22Z (t+21x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          22.50%    60.27MiB / 384MiB
+lab2-metrics-scalability-web-3          26.34%    61.76MiB / 384MiB
+lab2-metrics-scalability-web-2          24.68%    64.33MiB / 384MiB
+lab2-metrics-scalability-web-1          23.90%    69.41MiB / 384MiB
+lab2-metrics-scalability-db-1           14.26%    91.27MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.09%     104.4MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        11.40%    13.9MiB / 7.75GiB
+=== 2026-11-25T10:45:26Z (t+22x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          24.30%    60.28MiB / 384MiB
+lab2-metrics-scalability-web-3          22.54%    61.5MiB / 384MiB
+lab2-metrics-scalability-web-2          25.63%    64.1MiB / 384MiB
+lab2-metrics-scalability-web-1          25.17%    69.39MiB / 384MiB
+lab2-metrics-scalability-db-1           15.46%    91.27MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.01%     104.4MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        11.79%    13.42MiB / 7.75GiB
+=== 2026-11-25T10:45:30Z (t+23x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          26.96%    60.55MiB / 384MiB
+lab2-metrics-scalability-web-3          25.75%    61.51MiB / 384MiB
+lab2-metrics-scalability-web-2          25.96%    64.1MiB / 384MiB
+lab2-metrics-scalability-web-1          28.76%    69.41MiB / 384MiB
+lab2-metrics-scalability-db-1           15.60%    91.3MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.04%     104.4MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        12.86%    14.25MiB / 7.75GiB
+=== 2026-11-25T10:45:34Z (t+24x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          24.53%    60.57MiB / 384MiB
+lab2-metrics-scalability-web-3          26.70%    61.78MiB / 384MiB
+lab2-metrics-scalability-web-2          27.62%    64.06MiB / 384MiB
+lab2-metrics-scalability-web-1          28.71%    69.4MiB / 384MiB
+lab2-metrics-scalability-db-1           14.54%    91.27MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.20%     104.4MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        11.92%    13.83MiB / 7.75GiB
+=== 2026-11-25T10:45:38Z (t+25x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          47.80%    61.46MiB / 384MiB
+lab2-metrics-scalability-web-3          43.68%    61.48MiB / 384MiB
+lab2-metrics-scalability-web-2          43.48%    64.52MiB / 384MiB
+lab2-metrics-scalability-web-1          41.28%    69.39MiB / 384MiB
+lab2-metrics-scalability-db-1           22.10%    92.95MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.13%     104.3MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        27.20%    15.44MiB / 7.75GiB
+=== 2026-11-25T10:45:43Z (t+26x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          39.79%    61.72MiB / 384MiB
+lab2-metrics-scalability-web-3          34.30%    61.5MiB / 384MiB
+lab2-metrics-scalability-web-2          35.55%    64.11MiB / 384MiB
+lab2-metrics-scalability-web-1          38.02%    69.45MiB / 384MiB
+lab2-metrics-scalability-db-1           20.39%    92.96MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.32%     104.3MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        17.91%    13.82MiB / 7.75GiB
+=== 2026-11-25T10:45:47Z (t+27x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          47.51%    61.13MiB / 384MiB
+lab2-metrics-scalability-web-3          42.54%    61.51MiB / 384MiB
+lab2-metrics-scalability-web-2          43.59%    64.11MiB / 384MiB
+lab2-metrics-scalability-web-1          33.83%    69.39MiB / 384MiB
+lab2-metrics-scalability-db-1           22.66%    92.97MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.10%     104.3MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        19.38%    14.41MiB / 7.75GiB
+=== 2026-11-25T10:45:51Z (t+28x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          31.46%    61.1MiB / 384MiB
+lab2-metrics-scalability-web-3          32.72%    61.46MiB / 384MiB
+lab2-metrics-scalability-web-2          32.34%    64.09MiB / 384MiB
+lab2-metrics-scalability-web-1          33.46%    69.63MiB / 384MiB
+lab2-metrics-scalability-db-1           18.28%    92.98MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.05%     104.3MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        14.44%    14.8MiB / 7.75GiB
+=== 2026-11-25T10:45:55Z (t+29x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          28.66%    61.09MiB / 384MiB
+lab2-metrics-scalability-web-3          29.75%    61.61MiB / 384MiB
+lab2-metrics-scalability-web-2          28.73%    64.18MiB / 384MiB
+lab2-metrics-scalability-web-1          28.77%    69.4MiB / 384MiB
+lab2-metrics-scalability-db-1           17.48%    92.95MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   1.50%     100.3MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        14.37%    14.57MiB / 7.75GiB
+=== 2026-11-25T10:45:59Z (t+30x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          34.87%    61.36MiB / 384MiB
+lab2-metrics-scalability-web-3          37.90%    61.79MiB / 384MiB
+lab2-metrics-scalability-web-2          35.94%    64.3MiB / 384MiB
+lab2-metrics-scalability-web-1          37.96%    69.56MiB / 384MiB
+lab2-metrics-scalability-db-1           21.49%    92.97MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.10%     100.3MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        18.94%    15.13MiB / 7.75GiB
+=== 2026-11-25T10:46:03Z (t+31x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          35.13%    61.11MiB / 384MiB
+lab2-metrics-scalability-web-3          31.45%    61.52MiB / 384MiB
+lab2-metrics-scalability-web-2          32.40%    64.39MiB / 384MiB
+lab2-metrics-scalability-web-1          32.53%    69.39MiB / 384MiB
+lab2-metrics-scalability-db-1           20.80%    92.96MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.00%     100.3MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        16.85%    13.79MiB / 7.75GiB
+=== 2026-11-25T10:46:07Z (t+32x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          31.31%    61.32MiB / 384MiB
+lab2-metrics-scalability-web-3          33.57%    61.5MiB / 384MiB
+lab2-metrics-scalability-web-2          36.17%    64.32MiB / 384MiB
+lab2-metrics-scalability-web-1          34.44%    69.66MiB / 384MiB
+lab2-metrics-scalability-db-1           21.71%    92.97MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.17%     100.3MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        16.99%    13.87MiB / 7.75GiB
+=== 2026-11-25T10:46:11Z (t+33x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          36.53%    61.11MiB / 384MiB
+lab2-metrics-scalability-web-3          31.43%    61.5MiB / 384MiB
+lab2-metrics-scalability-web-2          33.52%    64.09MiB / 384MiB
+lab2-metrics-scalability-web-1          35.79%    69.4MiB / 384MiB
+lab2-metrics-scalability-db-1           21.84%    92.97MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.08%     100.3MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        17.88%    14.17MiB / 7.75GiB
+=== 2026-11-25T10:46:15Z (t+34x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          44.19%    61.1MiB / 384MiB
+lab2-metrics-scalability-web-3          51.20%    61.84MiB / 384MiB
+lab2-metrics-scalability-web-2          29.56%    64.1MiB / 384MiB
+lab2-metrics-scalability-web-1          46.65%    69.61MiB / 384MiB
+lab2-metrics-scalability-db-1           26.29%    92.95MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.00%     100.3MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        22.70%    14.99MiB / 7.75GiB
+=== 2026-11-25T10:46:19Z (t+35x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          50.62%    62.16MiB / 384MiB
+lab2-metrics-scalability-web-3          48.26%    61.63MiB / 384MiB
+lab2-metrics-scalability-web-2          51.19%    64.75MiB / 384MiB
+lab2-metrics-scalability-web-1          49.13%    69.52MiB / 384MiB
+lab2-metrics-scalability-db-1           25.71%    92.95MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.30%     100.3MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        18.27%    20.37MiB / 7.75GiB
+=== 2026-11-25T10:46:23Z (t+36x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          50.57%    63.1MiB / 384MiB
+lab2-metrics-scalability-web-3          50.03%    61.63MiB / 384MiB
+lab2-metrics-scalability-web-2          50.79%    64.78MiB / 384MiB
+lab2-metrics-scalability-web-1          47.34%    69.75MiB / 384MiB
+lab2-metrics-scalability-db-1           27.10%    92.93MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.00%     100.3MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        22.02%    20.2MiB / 7.75GiB
+=== 2026-11-25T10:46:27Z (t+37x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          50.35%    63.17MiB / 384MiB
+lab2-metrics-scalability-web-3          48.85%    61.5MiB / 384MiB
+lab2-metrics-scalability-web-2          50.39%    65MiB / 384MiB
+lab2-metrics-scalability-web-1          50.26%    69.78MiB / 384MiB
+lab2-metrics-scalability-db-1           28.99%    92.98MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.07%     100.3MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        20.20%    20.62MiB / 7.75GiB
+=== 2026-11-25T10:46:31Z (t+38x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          51.55%    63.19MiB / 384MiB
+lab2-metrics-scalability-web-3          44.90%    61.59MiB / 384MiB
+lab2-metrics-scalability-web-2          51.38%    64.84MiB / 384MiB
+lab2-metrics-scalability-web-1          44.02%    69.41MiB / 384MiB
+lab2-metrics-scalability-db-1           25.47%    93.21MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.08%     100.3MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        21.31%    20.1MiB / 7.75GiB
+=== 2026-11-25T10:46:36Z (t+39x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          50.74%    63.17MiB / 384MiB
+lab2-metrics-scalability-web-3          51.87%    61.55MiB / 384MiB
+lab2-metrics-scalability-web-2          50.41%    64.76MiB / 384MiB
+lab2-metrics-scalability-web-1          51.40%    70.04MiB / 384MiB
+lab2-metrics-scalability-db-1           28.46%    93.2MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.12%     100.3MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        23.46%    20.13MiB / 7.75GiB
+=== 2026-11-25T10:46:40Z (t+40x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          51.86%    63.26MiB / 384MiB
+lab2-metrics-scalability-web-3          51.26%    61.61MiB / 384MiB
+lab2-metrics-scalability-web-2          51.57%    64.98MiB / 384MiB
+lab2-metrics-scalability-web-1          51.86%    69.9MiB / 384MiB
+lab2-metrics-scalability-db-1           29.02%    92.98MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.00%     100.3MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        15.52%    21.16MiB / 7.75GiB
+=== 2026-11-25T10:46:44Z (t+41x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          51.23%    63.24MiB / 384MiB
+lab2-metrics-scalability-web-3          48.02%    61.59MiB / 384MiB
+lab2-metrics-scalability-web-2          51.09%    65.3MiB / 384MiB
+lab2-metrics-scalability-web-1          51.49%    70.07MiB / 384MiB
+lab2-metrics-scalability-db-1           26.09%    92.98MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.11%     100.3MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        20.09%    20.89MiB / 7.75GiB
+=== 2026-11-25T10:46:48Z (t+42x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          50.44%    63.17MiB / 384MiB
+lab2-metrics-scalability-web-3          53.26%    61.77MiB / 384MiB
+lab2-metrics-scalability-web-2          50.32%    65.03MiB / 384MiB
+lab2-metrics-scalability-web-1          51.05%    70.32MiB / 384MiB
+lab2-metrics-scalability-db-1           25.75%    92.9MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.04%     100.3MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        19.62%    21.01MiB / 7.75GiB
+=== 2026-11-25T10:46:52Z (t+43x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          50.77%    63.2MiB / 384MiB
+lab2-metrics-scalability-web-3          48.52%    61.58MiB / 384MiB
+lab2-metrics-scalability-web-2          50.82%    64.49MiB / 384MiB
+lab2-metrics-scalability-web-1          50.62%    70.07MiB / 384MiB
+lab2-metrics-scalability-db-1           30.86%    92.98MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.04%     100.3MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        21.09%    21.08MiB / 7.75GiB
+=== 2026-11-25T10:46:56Z (t+44x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          51.69%    63.2MiB / 384MiB
+lab2-metrics-scalability-web-3          50.56%    61.82MiB / 384MiB
+lab2-metrics-scalability-web-2          51.38%    64.27MiB / 384MiB
+lab2-metrics-scalability-web-1          51.54%    70.04MiB / 384MiB
+lab2-metrics-scalability-db-1           30.03%    92.98MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.06%     100.3MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        18.66%    20.81MiB / 7.75GiB
+=== 2026-11-25T10:47:00Z (t+45x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          50.25%    63.18MiB / 384MiB
+lab2-metrics-scalability-web-3          50.66%    61.73MiB / 384MiB
+lab2-metrics-scalability-web-2          50.06%    64.62MiB / 384MiB
+lab2-metrics-scalability-web-1          50.24%    69.98MiB / 384MiB
+lab2-metrics-scalability-db-1           24.32%    92.97MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.00%     100.3MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        21.47%    20.46MiB / 7.75GiB
+=== 2026-11-25T10:47:04Z (t+46x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          50.39%    63.17MiB / 384MiB
+lab2-metrics-scalability-web-3          44.97%    61.79MiB / 384MiB
+lab2-metrics-scalability-web-2          50.20%    64.96MiB / 384MiB
+lab2-metrics-scalability-web-1          50.59%    69.95MiB / 384MiB
+lab2-metrics-scalability-db-1           27.19%    92.95MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.17%     100.3MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        23.05%    21.43MiB / 7.75GiB
+=== 2026-11-25T10:47:08Z (t+47x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          50.45%    63.18MiB / 384MiB
+lab2-metrics-scalability-web-3          47.77%    61.6MiB / 384MiB
+lab2-metrics-scalability-web-2          50.14%    65.07MiB / 384MiB
+lab2-metrics-scalability-web-1          50.21%    70.27MiB / 384MiB
+lab2-metrics-scalability-db-1           29.19%    92.98MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.00%     100.3MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        18.63%    21.87MiB / 7.75GiB
+=== 2026-11-25T10:47:12Z (t+48x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          50.52%    63.15MiB / 384MiB
+lab2-metrics-scalability-web-3          49.07%    63.46MiB / 384MiB
+lab2-metrics-scalability-web-2          50.65%    64.83MiB / 384MiB
+lab2-metrics-scalability-web-1          50.29%    70.26MiB / 384MiB
+lab2-metrics-scalability-db-1           26.91%    92.98MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.15%     100.3MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        18.08%    21.62MiB / 7.75GiB
+=== 2026-11-25T10:47:16Z (t+49x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          50.93%    63.14MiB / 384MiB
+lab2-metrics-scalability-web-3          47.83%    63.76MiB / 384MiB
+lab2-metrics-scalability-web-2          50.61%    64.83MiB / 384MiB
+lab2-metrics-scalability-web-1          50.35%    70.25MiB / 384MiB
+lab2-metrics-scalability-db-1           26.30%    92.97MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.12%     100.3MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        18.94%    21.78MiB / 7.75GiB
+=== 2026-11-25T10:47:20Z (t+50x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          50.31%    63.39MiB / 384MiB
+lab2-metrics-scalability-web-3          50.75%    63.51MiB / 384MiB
+lab2-metrics-scalability-web-2          50.38%    64.88MiB / 384MiB
+lab2-metrics-scalability-web-1          50.50%    70.08MiB / 384MiB
+lab2-metrics-scalability-db-1           28.90%    92.91MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.05%     100.3MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        20.82%    21.77MiB / 7.75GiB
+=== 2026-11-25T10:47:24Z (t+51x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          50.82%    63.3MiB / 384MiB
+lab2-metrics-scalability-web-3          49.92%    63.9MiB / 384MiB
+lab2-metrics-scalability-web-2          50.74%    64.77MiB / 384MiB
+lab2-metrics-scalability-web-1          50.39%    69.45MiB / 384MiB
+lab2-metrics-scalability-db-1           26.41%    92.98MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.02%     100.3MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        18.70%    21.54MiB / 7.75GiB
+=== 2026-11-25T10:47:28Z (t+52x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          51.36%    63.56MiB / 384MiB
+lab2-metrics-scalability-web-3          47.02%    63.92MiB / 384MiB
+lab2-metrics-scalability-web-2          51.48%    65.14MiB / 384MiB
+lab2-metrics-scalability-web-1          50.74%    69.76MiB / 384MiB
+lab2-metrics-scalability-db-1           28.05%    92.98MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.10%     100.3MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        18.72%    22.05MiB / 7.75GiB
+=== 2026-11-25T10:47:33Z (t+53x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          0.11%     63.27MiB / 384MiB
+lab2-metrics-scalability-web-3          0.10%     63.79MiB / 384MiB
+lab2-metrics-scalability-web-2          0.16%     64.68MiB / 384MiB
+lab2-metrics-scalability-web-1          0.11%     69.32MiB / 384MiB
+lab2-metrics-scalability-db-1           1.47%     92.87MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.12%     100.6MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        0.00%     12.72MiB / 7.75GiB
+=== 2026-11-25T10:47:37Z (t+54x2s) ===
+NAME                                    CPU %     MEM USAGE / LIMIT
+lab2-metrics-scalability-web-4          0.18%     63.21MiB / 384MiB
+lab2-metrics-scalability-web-3          0.15%     63.77MiB / 384MiB
+lab2-metrics-scalability-web-2          0.63%     64.91MiB / 384MiB
+lab2-metrics-scalability-web-1          0.14%     69.32MiB / 384MiB
+lab2-metrics-scalability-db-1           0.03%     92.82MiB / 7.75GiB
+lab2-metrics-scalability-prometheus-1   0.12%     100.3MiB / 7.75GiB
+lab2-metrics-scalability-nginx-1        0.00%     12.45MiB / 7.75GiB
