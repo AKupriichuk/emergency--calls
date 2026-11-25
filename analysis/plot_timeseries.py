@@ -21,6 +21,7 @@ import matplotlib.pyplot as plt
 import requests
 
 from analysis.quantile import estimate_quantile
+from analysis.scalability import usl_throughput
 
 # Variant 13 bucket set Г3 (seconds), matching app/metrics.py's buckets.
 _INF = float("inf")
@@ -132,6 +133,39 @@ def plot_run(csv_path: str, prometheus_range_json: dict, run_start: float, out_p
     axes[2].set_title("Per-instance req/s, CPU usage, in-progress requests")
     axes[2].legend(fontsize="small", ncol=2)
 
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=150)
+    plt.close(fig)
+
+
+def plot_usl_fit(
+    points: list[tuple[int, float]],
+    spreads: dict[int, float],
+    lam: float,
+    sigma: float,
+    kappa: float,
+    out_path: str,
+) -> None:
+    """Measured X(N) with error bars, the fitted USL curve, and the ideal
+    linear-scaling line lambda*N, for N in 1..max(measured N)."""
+    all_points = sorted({1: lam, **{n: x for n, x in points}}.items())
+    ns = [n for n, _ in all_points]
+    xs = [x for _, x in all_points]
+    errs = [spreads.get(n, 0.0) for n in ns]
+
+    curve_ns = list(range(1, max(ns) + 1))
+    curve_xs = [usl_throughput(n, lam, sigma, kappa) for n in curve_ns]
+    linear_xs = [lam * n for n in curve_ns]
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.errorbar(ns, xs, yerr=errs, fmt="o", label="measured X(N)", capsize=4)
+    ax.plot(curve_ns, curve_xs, label=f"USL fit (σ={sigma:.3f}, κ={kappa:.4f})")
+    ax.plot(curve_ns, linear_xs, linestyle="--", label=f"ideal λN (λ={lam:.1f})")
+    ax.set_xlabel("N (instances)")
+    ax.set_ylabel("X(N) (req/s)")
+    ax.set_title("Measured throughput vs. Universal Scalability Law fit")
+    ax.set_xticks(curve_ns)
+    ax.legend()
     fig.tight_layout()
     fig.savefig(out_path, dpi=150)
     plt.close(fig)
