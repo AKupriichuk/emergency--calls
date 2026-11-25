@@ -16,6 +16,31 @@ def test_aggregate_phase_counts_only_2xx_as_achieved():
     assert summaries[0].count_conn_errors == 0
 
 
+def test_aggregate_phase_does_not_drop_completions_past_the_nominal_window():
+    # scheduled inside the 1s window, but done_ts lands after duration_s=1 --
+    # a late straggler must still be counted, not silently discarded.
+    rows = [
+        RequestResult(scheduled_ts=0.9, done_ts=0.95, status_code=200, error=""),
+        RequestResult(scheduled_ts=0.9, done_ts=2.3, status_code=200, error=""),
+    ]
+    summaries = aggregate_phase(rows, phase_start=0.0, duration_s=1, target_rate=1.0)
+    total_counted = sum(s.count_2xx + s.count_non_2xx for s in summaries)
+    assert total_counted == 2
+    assert len(summaries) > 1  # the straggler got its own second, past duration_s
+
+
+def test_aggregate_phase_counts_a_result_past_timeout_as_non_2xx_even_if_status_is_200():
+    # the HTTP call itself returned 200, but only after far longer than the
+    # 5s timeout measured from the *scheduled* time -- spec: a request that
+    # exceeds the timeout counts as non-2xx, and that must be judged from
+    # the scheduled send time, not the actual dispatch time.
+    rows = [RequestResult(scheduled_ts=0.0, done_ts=9.0, status_code=200, error="")]
+    summaries = aggregate_phase(rows, phase_start=0.0, duration_s=10, target_rate=1.0, timeout_s=5.0)
+    done_second = summaries[9]
+    assert done_second.count_2xx == 0
+    assert done_second.count_non_2xx == 1
+
+
 def test_aggregate_phase_uses_scheduled_time_for_latency():
     rows = [RequestResult(scheduled_ts=10.0, done_ts=10.05, status_code=200, error="")]
     # dispatched late (actual send unknown/irrelevant here) but scheduled at t=10.0

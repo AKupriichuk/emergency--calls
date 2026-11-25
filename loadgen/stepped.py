@@ -29,6 +29,7 @@ STEP_DURATION_S = 20
 STEP_INCREMENT = 200.0
 TRANSIENT_S = 5.0
 WINDOW_S = 15.0
+TIMEOUT_S = 5.0
 
 
 @dataclass
@@ -54,23 +55,41 @@ class SecondSummary:
 
 
 def aggregate_phase(
-    rows: list[RequestResult], phase_start: float, duration_s: int, target_rate: float
+    rows: list[RequestResult],
+    phase_start: float,
+    duration_s: int,
+    target_rate: float,
+    timeout_s: float = 5.0,
 ) -> list[SecondSummary]:
-    sent_buckets: list[list[RequestResult]] = [[] for _ in range(duration_s)]
-    done_buckets: list[list[RequestResult]] = [[] for _ in range(duration_s)]
+    # A worker waits for every scheduled request to finish, however late, so
+    # a result can legitimately complete after the phase's nominal duration
+    # (queueing under overload). Size the bucket range to cover every actual
+    # completion instead of silently discarding the stragglers.
+    max_done_second = max((int(r.done_ts - phase_start) for r in rows), default=-1)
+    span = max(duration_s, max_done_second + 1)
+
+    sent_buckets: list[list[RequestResult]] = [[] for _ in range(span)]
+    done_buckets: list[list[RequestResult]] = [[] for _ in range(span)]
 
     for row in rows:
         sent_second = int(row.scheduled_ts - phase_start)
-        if 0 <= sent_second < duration_s:
+        if 0 <= sent_second < span:
             sent_buckets[sent_second].append(row)
         done_second = int(row.done_ts - phase_start)
-        if 0 <= done_second < duration_s:
+        if 0 <= done_second < span:
             done_buckets[done_second].append(row)
 
     summaries = []
-    for second in range(duration_s):
+    for second in range(span):
         done_rows = done_buckets[second]
-        count_2xx = sum(1 for r in done_rows if 200 <= r.status_code < 300)
+        # A result that took longer than the timeout to complete (measured
+        # from the scheduled send time) counts as non-2xx regardless of the
+        # status code the late response actually carried.
+        count_2xx = sum(
+            1
+            for r in done_rows
+            if 200 <= r.status_code < 300 and (r.done_ts - r.scheduled_ts) <= timeout_s
+        )
         # A timeout counts as non-2xx, not as a connection error (spec: "запит,
         # що перевищив тайм-аут, рахується як відповідь з кодом не 2xx").
         count_conn_errors = sum(1 for r in done_rows if r.error and "timeout" not in r.error.lower())
@@ -229,20 +248,25 @@ def run_stepped(url_template: str, ids: list[str], out_path: str, g_limit: float
     start_time = time.time() + 1.0
     elapsed = 0
 
-    rows = run_phase(url_template, ids, WARMUP_RATE, WARMUP_DURATION_S, start_time)
-    summaries = aggregate_phase(rows, start_time, WARMUP_DURATION_S, WARMUP_RATE)
+    rows = run_phase(url_template, ids, WARMUP_RATE, WARMUP_DURATION_S, start_time, timeout_s=TIMEOUT_S)
+    summaries = aggregate_phase(rows, start_time, WARMUP_DURATION_S, WARMUP_RATE, timeout_s=TIMEOUT_S)
     _append_summaries(out_path, summaries, elapsed, write_header=True)
-    elapsed += WARMUP_DURATION_S
+    # Advance by however many seconds were actually written, not the nominal
+    # duration -- a phase that overran (stragglers past its window) gets
+    # extra summary rows, and the next phase's "second" column must start
+    # right after the last one actually written, or two phases would claim
+    # the same second.
+    elapsed += len(summaries)
 
     consecutive_below = 0
     step_index = 0
     while True:
         target_rate = WARMUP_RATE + STEP_INCREMENT * step_index
         phase_start = start_time + elapsed
-        rows = run_phase(url_template, ids, target_rate, STEP_DURATION_S, phase_start)
-        summaries = aggregate_phase(rows, phase_start, STEP_DURATION_S, target_rate)
+        rows = run_phase(url_template, ids, target_rate, STEP_DURATION_S, phase_start, timeout_s=TIMEOUT_S)
+        summaries = aggregate_phase(rows, phase_start, STEP_DURATION_S, target_rate, timeout_s=TIMEOUT_S)
         _append_summaries(out_path, summaries, elapsed, write_header=False)
-        elapsed += STEP_DURATION_S
+        elapsed += len(summaries)
 
         step_avg, _ = window_average_achieved(summaries, TRANSIENT_S, WINDOW_S)
         stop, consecutive_below = should_stop(step_avg, target_rate, g_limit, consecutive_below)
