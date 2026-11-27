@@ -570,3 +570,300 @@ were caught by running the actual numbers and noticing they didn't add up, not b
     relative to the small remaining spare capacity — visible directly in this data as p99 growing
     from 58.9ms at 100 rps to 386.7ms at 500 rps on 1 instance, a 5x rate increase producing a
     6.6x p99 increase.
+
+---
+
+# Lab 2 — Metrics and Scalability Limit
+
+Lab Work #2 — "Service metrics and the scalability limit".
+Course: "High-Performance Distributed Computing Systems".
+Variant 13 (same variant as Lab 1): **`DB_POOL_SIZE=10`, histogram bucket set Г3, additional
+metric М3** (cgroup CPU throttling). The `web` container's CPU/memory limits are unchanged from
+Lab 1 (`cpus: "0.5"`, `memory: 384M`), per the assignment's explicit instruction not to change
+them.
+
+This section is filled in stage by stage, the same way Lab 1's was: each stage below is also the
+report for that stage, appended as the work happened, not rewritten after the fact.
+
+## Stage 1 — Metrics
+
+Added `prometheus_client` (`app/metrics.py`): a request counter (`http_requests_total`, labels
+`method`/`path`/`code`, path always the route **template** — `/emergency-calls/{call_id}`, never
+the raw id, or every distinct id would become its own series), a duration histogram
+(`http_request_duration_seconds`, bucket set Г3 in seconds:
+`0.001, 0.002, 0.004, 0.008, 0.016, 0.032, 0.064, 0.128, 0.256, 0.512, 1.024`), and an in-progress
+gauge (`http_requests_in_progress`), all wired through a `BaseHTTPMiddleware` and exposed at
+`GET /metrics`.
+
+Variant 13's additional metric, **М3** (cgroup CPU throttling): a custom
+`prometheus_client` collector reads `/sys/fs/cgroup/cpu.stat` (cgroup v2; falls back to
+`/sys/fs/cgroup/cpu,cpuacct/cpu.stat` for v1) and exposes `nr_periods`/`nr_throttled` as
+`cgroup_cpu_periods_total`/`cgroup_cpu_throttled_periods_total` counters. The collector degrades
+to emitting nothing — not a 500 — when neither path is readable (a non-Linux dev machine, or a
+container without the expected cgroup layout), checked by a dedicated test
+(`test_metrics_endpoint_survives_missing_cgroup_file`).
+
+Verified live: the real `/metrics` output from a running container already showed nonzero
+throttling at idle —
+
+```
+cgroup_cpu_periods_total 455.0
+cgroup_cpu_throttled_periods_total 12.0
+```
+
+— confirming the 0.5-CPU limit was already biting under nothing more than image-build/startup
+load, well before any real experiment began (this turned out to foreshadow Stage 11's whole
+diagnosis).
+
+## Stage 2 — Ops endpoints
+
+Added `GET /livez` (`200`, no dependency on the database — verified with a test that would fail
+if it touched `get_db`), replaced Lab 1's `X-Instance-Id` header with **`X-Pod`** sourced from a
+`POD_NAME` environment variable, falling back to the container hostname when unset (which is the
+normal case under `docker compose --scale`, since Compose has no way to give each replica a
+distinct env value — Docker's own per-container hostname is what actually differentiates
+replicas here), and wired variant 13's **`DB_POOL_SIZE=10`** into the SQLAlchemy engine
+(`pool_size=10, max_overflow=0`, so the pool is a hard cap, not a soft one).
+
+One real gotcha caught before it reached a test run: passing `pool_size`/`max_overflow` to
+`create_async_engine` unconditionally breaks the test suite, because the tests use
+`sqlite+aiosqlite:///:memory:` and SQLite's pool classes don't accept those kwargs —
+
+```
+TypeError: Invalid argument(s) 'pool_size','max_overflow' sent to create_engine()...
+```
+
+— confirmed by hand before writing the fix, which guards both kwargs behind
+`database_url.startswith("postgresql")`.
+
+## Stage 3 — Graceful shutdown
+
+Added a FastAPI shutdown hook that disposes the SQLAlchemy engine on `SIGTERM`; the Dockerfile's
+`CMD` was already exec-form from the Lab 1 review-fix pass, so uvicorn receives the signal
+directly and drains in-flight requests before exiting.
+
+**First live test failed.** On a 2-replica stand, running 10s of load while `docker stop`-ping
+one replica gave exit code `0` (the container itself shut down cleanly in ~115ms) but the
+generator recorded **26-31 of 500 requests failing** with `Read timed out`, spanning several
+seconds around the stop — not the "zero errors" the assignment requires. Nginx's own logs,
+captured with a custom `log_format` showing `$upstream_addr`/`$upstream_status`/
+`$upstream_response_time`, pinned the cause down precisely: a container mid-teardown can leave
+new TCP connections to it unanswered for a few seconds, well past nginx's default
+**60-second** `proxy_connect_timeout` — nginx just sat there, and the generator's own 10s client
+timeout gave up first.
+
+Fixed with a short `proxy_connect_timeout 2s` plus an `error_page 502 504 = @retry;` internal
+redirect whose location block re-evaluates `set $upstream web:8000;` — forcing a **fresh DNS
+lookup** before the retry, so it lands on the surviving replica instead of the same dead IP.
+`proxy_read_timeout` was deliberately left at its default, not shortened to match: a slow-but-
+healthy response under the genuine heavy load of Stages 6-7 must never be mistaken for a dead
+backend and silently retried, which would corrupt the very latency numbers those stages exist to
+measure. Re-verified after the fix:
+
+```
+172.20.0.3:8000, 172.20.0.6:8000   504, 200   2.002, 0.027   "GET /emergency-calls HTTP/1.1"
+```
+
+— the dead replica times out at exactly 2.0s, the retry against the live one succeeds in 27ms,
+total 2.03s, and the client never sees anything but `200`. Full re-run: **0/500 errors**, exit
+code `0`.
+
+A second, unrelated bug surfaced in the same session: `docker-compose.yml`'s `migrate` service
+only set `DATABASE_URL`, but `app/config.py`'s `Settings` has required `PAGINATION_*`/
+`DB_POOL_SIZE` with no defaults (the Lab 1 review fix removed those defaults) — so a real
+`docker compose up` failed with a `pydantic` `ValidationError` on `migrate`, a failure no unit
+test could have caught since tests never exercise the Compose environment. Fixed by adding the
+same three variables to `migrate`'s environment block. **This bug is also present on `main`** —
+it predates this branch and should be fixed there separately.
+
+**Found by the final whole-branch review:** the `@retry` location introduced above replayed
+*any* failed request against another instance, including `POST`/`PUT`/`DELETE` — a request that
+had already reached and mutated the dying instance before the connection failed could be
+duplicated, since `error_page`/`error_page`-driven internal redirects have no equivalent of
+`proxy_next_upstream`'s built-in refusal to retry non-idempotent methods. Fixed by gating `@retry`
+to `GET`/`HEAD` only (`if ($request_method !~ ^(GET|HEAD)$) { return 502; }`); everything else now
+surfaces the original error instead of being retried. Verified the config still loads
+(`nginx -t`) and that an ordinary `GET` and `POST` both work normally through nginx after the
+change.
+
+## Stage 4 — Compose stand with Prometheus
+
+Added a `prometheus` service (`prom/prometheus:v2.55.1`) with a 5-second scrape interval and
+`dns_sd_configs` discovery of the `web` service (type `A`, port `8000`, `refresh_interval: 5s`),
+plus `location = /noop { return 204; }` in `nginx.conf` for Stage 6's generator-ceiling
+calibration.
+
+Verified live: Prometheus's Targets page showed `web (2/2 up)` and, after `--scale web=4` plus an
+`nginx` restart, `web (4/4 up)`; `GET /noop` returned `204` with **no** `X-Pod` header (confirming
+it never reaches `web`); `/metrics` was reachable through the published nginx port.
+
+## Stage 5 — Stepped-load generator
+
+`loadgen/stepped.py` adds the assignment's stepped profile (warmup 10s @ 200 req/s, then 20s
+steps incrementing by 200 req/s, 5s transient + 15s measurement window per step, stop on two
+consecutive shortfalls below 0.9× target or on hitting the generator's own ceiling `G`) on top of
+Lab 1's multiprocess/thread-pool sending machinery, with two changes the spec requires and Lab 1
+didn't need: **latency is measured from the scheduled send time**, not the actual dispatch time,
+and **achieved rate counts only 2xx responses** — exactly the calculation the Lab 1 review
+flagged as wrong when it counted all completed responses, including errors.
+
+`loadgen/seed.py` now saves all 100 seeded ids (one per line), not just the first, since the
+scenario needs a random one of the hundred per request, not a single repeated id.
+
+Verified offline (an unreachable host correctly classified as a connection error, not a timeout)
+and live against the real 1-instance service: rates ramped 200→400→600→800 req/s, p99 climbed
+into multi-second territory as the single 0.5-CPU instance saturated, and the run stopped itself
+on two consecutive shortfalls exactly as specified.
+
+**Found by the final whole-branch review, fixed before the experiment series below:** two real
+bugs in the aggregation. First, `aggregate_phase` truncated its per-second bucket range to the
+phase's own nominal duration, so any request that finished after that window — common under
+overload, up to 65% of a step's requests in the worst case the reviewer measured — was silently
+dropped from every count and percentile, not merely excluded as a straggler; fixed by sizing the
+bucket range to the actual span of completions (`run_stepped` now advances its running "second"
+offset by however many rows a phase actually produced, so an overrun phase never collides with
+the next one's numbering). Second, the 5s timeout was only enforced by each request's own
+`timeout=` kwarg, measured from *actual dispatch* — a request stuck behind others in the worker's
+thread-pool queue could take far longer than 5s from its *scheduled* time while still returning a
+real `200` once it finally ran, silently counting as success; `aggregate_phase` now also treats
+`done_ts - scheduled_ts > 5s` as non-2xx regardless of the status code. Both fixes are covered by
+new tests (`tests/test_stepped_aggregation.py`). The 1-4 instance series in Stage 7 below is the
+re-run against the fixed generator; the first run's numbers are superseded.
+
+## Stage 6 — Generator ceiling (G)
+
+Ran the stepped profile against `/noop` with no `--g-limit` (10-core host): 59 steps,
+200→11,800 req/s, achieved rate tracking target almost exactly through target=11,400 req/s, then
+collapsing — p50 latency jumps from ~1ms to multi-second territory and achieved rate crashes to
+near zero once the generator's own 10 worker processes/thread pools run out of headroom, not
+nginx or the network (`/noop` never touches a backend).
+
+**G = 11,532.5 req/s** (the largest 15s-window average achieved rate across the run, std=431.3).
+
+## Stage 7 — 1/2/3/4-instance series
+
+Ran the real `GET /emergency-calls/{id}` scenario on 1, 2, 3 and 4 replicas, re-discovering
+targets and restarting nginx after every `--scale`:
+
+| N | X(N) req/s | spread | client p99 | server p99 | CPU/instance | in-progress/instance |
+|---|---|---|---|---|---|---|
+| 1 | 608.4 | ±80.2 | 1492.7 ms | 114.5 ms | 0.500 | 12.00 |
+| 2 | 1016.8 | ±117.3 | 314.4 ms | 62.4 ms | 0.420 | 4.50 |
+| 3 | 1399.3 | ±42.0 | 28.8 ms | 37.2 ms | 0.382 | 3.11 |
+| 4 | 1599.7 | ±22.9 | 39.9 ms | 82.3 ms | 0.383 | 1.50 |
+
+(Full table with target rate, the step each X(N) was reached on, and non-2xx fraction:
+`results/stepped_series_notes.md`.)
+
+None of the four points are generator-bound (every `X(N)` sits far below `0.9·G ≈ 10,379`, and
+every run's final step still shows achieved rate well under `0.9×` its target — ratios 0.43 /
+0.43 / 0.58 / 0.76 for N=1..4 — each run stopped on genuine saturation), so the CPU-halving
+contingency the assignment allows for was not needed.
+
+Server p99 (the actual request-handling time, estimated from the Prometheus histogram) stays
+within tens-to-low-hundreds of milliseconds at every `X(N)` point; client p99 at the `X(1)` point
+specifically reaches into the multi-second range (1492.7 ms vs. a server p99 of only 114.5 ms) —
+that gap, followed up in Stage 11, is queueing *before* the CPU-starved event loop gets to run a
+request, not slow application logic. At N=2-4 the `X(N)` points themselves sit before that
+queueing effect sets in (client p99 29-314 ms); it shows up instead in those runs' later,
+post-peak steps.
+
+## Stage 8 — Diagrams
+
+`results/timeseries_1inst.png` and `results/timeseries_4inst.png` (built before any
+`docker compose down -v`, since Prometheus's data lives in a volume): target vs. achieved rate,
+client vs. server p99, and per-instance req/s + CPU% + in-progress requests, all on one shared
+"seconds since run start" axis per run. The 4-instance chart's four req/s lines overlap almost
+exactly — confirming nginx really does balance the real load evenly across replicas, not just at
+the DNS/Targets level checked in Stage 4.
+
+## Stage 9 — Client vs. server p99 (1-instance run)
+
+Per-step comparison for `results/stepped_1inst.csv`, server p99 from the histogram-quantile
+estimator (rank-interpolation, Q(q) formula) over summed bucket counts:
+
+| target (req/s) | client p99 | server p99 | bucket | max error |
+|---|---|---|---|---|
+| 200 | 29.0 ms | 23.7 ms | (16, 32] ms | ±16 ms |
+| 400 | 33.0 ms | 15.2 ms | (8, 16] ms | ±8 ms |
+| 600 | 1492.7 ms | 114.5 ms | (64, 128] ms | ±64 ms |
+| 800 | 1098.5 ms | 118.3 ms | (64, 128] ms | ±64 ms |
+| 1000 | 2736.7 ms | 127.4 ms | (64, 128] ms | ±64 ms |
+
+At 200-400 req/s client and server p99 track each other closely — negligible queueing. From
+600 req/s on (the step where `X(1)` is reached), server p99 settles around ~115-130ms while
+client p99 reaches into the multi-second range: the handler itself isn't getting much slower,
+requests are waiting a long time to even start being handled.
+
+## Stage 10 — Universal Scalability Law fit
+
+Fit against the three `N>1` points (`λ = X(1) = 608.4`):
+
+**σ = 0.160, κ = 0.0024, N\* ≈ 18.5** — the fitted curve tracks the measured points closely
+(predicted X(2)=1044.1 vs. measured 1016.8; X(3)=1366.5 vs. 1399.3; X(4)=1610.7 vs. 1599.7), and
+`N* > 4` (by a wide margin) means the system is still far from its theoretical throughput optimum
+at 4 instances — consistent with `X(N)` still climbing at a rate close to linear through every
+measured point.
+`results/usl_fit.png` plots the measured `X(N)` with error bars, the fitted curve, and the ideal
+linear-scaling line `λN` — the growing gap between the two is σ and κ's cost made visible.
+
+## Stage 11 — Bottleneck diagnosis
+
+**The shared resource capping `X(N)` growth is the `web` container's own `cpus: "0.5"` limit** —
+not the database, not the host, and not the generator:
+
+- `docker stats` at the step where `X(4)=1599.7` was reached: all four `web` containers sit at
+  **~35-53% CPU** (docker's CPU% is a fraction of one whole host core, so this is the container
+  consuming close to its full 0.5-core quota — the cgroup limit, not a coincidence), `db` sits at
+  only **~28-30%**, `nginx` at **~20-22%** — on a 10-CPU Docker Desktop VM with plenty of headroom
+  left over (4×0.5=2 cores claimed out of 10).
+- **М3 confirms it directly**: `results/m3_throttling_vs_rate.png` shows the cgroup
+  throttled-period fraction jumping from near 0 to roughly 70-100% at almost exactly the target
+  rate where each run's throughput plateaus — ~600 req/s for `N=1` (matching `X(1)`) and
+  ~1800-2000 req/s for `N=4` (just past `X(4)`'s own step) — for both instance counts.
+- The generator's own ceiling, **G=11,532.5 req/s** (Stage 6), is over **7×** the measured
+  `X(4)=1599.7`. This bounds the generator's raw sending capacity (measured against `/noop`,
+  near-zero latency) rather than its thread-pool concurrency at higher per-request latency, but
+  the client p99 actually observed at every `X(N)` point (29-1493 ms) is comfortably inside what
+  that pool can sustain, so the large margin still supports ruling the generator out here.
+- Server-side latency staying comparatively flat (Stage 9) while client latency diverges from
+  `N=1` onward is exactly what CPU throttling produces (requests queue for withheld CPU time),
+  not what a saturated `DB_POOL_SIZE=10` would produce (which would show up as slow *database*
+  time inside the handler, raising server p99 too).
+
+Raising `X(N)` further needs a higher per-`web`-instance CPU limit; the database is not a
+limiting factor at any of the measured points, and the generator's large margin makes it an
+unlikely one too, though that margin narrows at higher per-request latency than anything observed
+here.
+
+## Rejected approaches (Lab 2)
+
+1. **Shortening `proxy_read_timeout` alongside `proxy_connect_timeout`** in the Stage 3 nginx
+   fix — rejected in favor of touching only `proxy_connect_timeout`. A connect-phase hang (a
+   container mid-teardown) and a read-phase delay (a healthy-but-overloaded backend during
+   Stages 6-7's real heavy load) are different problems; shortening the read timeout would have
+   fixed the first at the cost of silently retrying — and corrupting the latency measurements
+   for — the second. Verified that `proxy_connect_timeout` alone, without touching
+   `proxy_read_timeout`, was sufficient (0/500 errors).
+2. **Classifying a client-observed timeout as a "connection error"** in the stepped generator's
+   per-second aggregation — rejected; the assignment specifies a timeout counts as a non-2xx
+   response, not a separate connection-error category, so `count_conn_errors` explicitly excludes
+   any result whose error string contains "timeout".
+3. **Querying Prometheus's `rate(...)` over a window equal to the 5-second scrape interval** for
+   the per-instance req/s and CPU charts — rejected after it came back empty: `rate()` needs
+   several scrape intervals' worth of samples to compute anything, so a bare 5s window (same as
+   `scrape_interval`) frequently has too few points. Widened to 15s, matching the histogram
+   query's own lookback.
+
+## Use of generative models (Lab 2)
+
+The same as Lab 1: every piece of Lab 2 (metrics, the shutdown hook, the Compose/Prometheus
+stand, the stepped-load generator, the analysis scripts) was written with Claude (Claude Code)
+and then actually run, not trusted on inspection alone — the full pytest suite, a real
+multi-replica Docker Compose stand at 1/2/3/4 instances, two live SIGTERM tests, a 59-step
+generator-ceiling calibration, and the complete four-point experiment series. Three real bugs
+were found this way during this lab specifically, and are documented above rather than smoothed
+over: the SQLite-incompatible pool kwargs (Stage 2), the nginx connect-timeout hang under
+SIGTERM (Stage 3), and the `migrate` service's missing environment variables (Stage 3, also
+present on `main`). Every number in Stages 6-11 comes from a command or a chart that was actually
+produced during this session.

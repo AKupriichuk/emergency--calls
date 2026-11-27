@@ -44,7 +44,7 @@ def _do_request(
             time.time(),
             response.status_code,
             "",
-            response.headers.get("X-Instance-Id", ""),
+            response.headers.get("X-Pod", ""),
         )
     except requests.RequestException as exc:
         return RequestResult(worker_id, seq, sent_ts, time.time(), 0, str(exc), "")
