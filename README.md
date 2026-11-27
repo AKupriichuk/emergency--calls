@@ -676,6 +676,16 @@ test could have caught since tests never exercise the Compose environment. Fixed
 same three variables to `migrate`'s environment block. **This bug is also present on `main`** —
 it predates this branch and should be fixed there separately.
 
+**Found by the final whole-branch review:** the `@retry` location introduced above replayed
+*any* failed request against another instance, including `POST`/`PUT`/`DELETE` — a request that
+had already reached and mutated the dying instance before the connection failed could be
+duplicated, since `error_page`/`error_page`-driven internal redirects have no equivalent of
+`proxy_next_upstream`'s built-in refusal to retry non-idempotent methods. Fixed by gating `@retry`
+to `GET`/`HEAD` only (`if ($request_method !~ ^(GET|HEAD)$) { return 502; }`); everything else now
+surfaces the original error instead of being retried. Verified the config still loads
+(`nginx -t`) and that an ordinary `GET` and `POST` both work normally through nginx after the
+change.
+
 ## Stage 4 — Compose stand with Prometheus
 
 Added a `prometheus` service (`prom/prometheus:v2.55.1`) with a 5-second scrape interval and
@@ -705,6 +715,21 @@ and live against the real 1-instance service: rates ramped 200→400→600→800
 into multi-second territory as the single 0.5-CPU instance saturated, and the run stopped itself
 on two consecutive shortfalls exactly as specified.
 
+**Found by the final whole-branch review, fixed before the experiment series below:** two real
+bugs in the aggregation. First, `aggregate_phase` truncated its per-second bucket range to the
+phase's own nominal duration, so any request that finished after that window — common under
+overload, up to 65% of a step's requests in the worst case the reviewer measured — was silently
+dropped from every count and percentile, not merely excluded as a straggler; fixed by sizing the
+bucket range to the actual span of completions (`run_stepped` now advances its running "second"
+offset by however many rows a phase actually produced, so an overrun phase never collides with
+the next one's numbering). Second, the 5s timeout was only enforced by each request's own
+`timeout=` kwarg, measured from *actual dispatch* — a request stuck behind others in the worker's
+thread-pool queue could take far longer than 5s from its *scheduled* time while still returning a
+real `200` once it finally ran, silently counting as success; `aggregate_phase` now also treats
+`done_ts - scheduled_ts > 5s` as non-2xx regardless of the status code. Both fixes are covered by
+new tests (`tests/test_stepped_aggregation.py`). The 1-4 instance series in Stage 7 below is the
+re-run against the fixed generator; the first run's numbers are superseded.
+
 ## Stage 6 — Generator ceiling (G)
 
 Ran the stepped profile against `/noop` with no `--g-limit` (10-core host): 59 steps,
@@ -722,22 +747,26 @@ targets and restarting nginx after every `--scale`:
 
 | N | X(N) req/s | spread | client p99 | server p99 | CPU/instance | in-progress/instance |
 |---|---|---|---|---|---|---|
-| 1 | 600.1 | ±8.0 | 33.9 ms | 24.8 ms | 0.468 | 3.00 |
-| 2 | 966.3 | ±80.5 | 4940.8 ms | 120.6 ms | 0.499 | 12.00 |
-| 3 | 1238.8 | ±122.4 | 2026.7 ms | 118.5 ms | 0.496 | 7.22 |
-| 4 | 1358.7 | ±122.9 | 4582.7 ms | 124.5 ms | 0.495 | 9.17 |
+| 1 | 608.4 | ±80.2 | 1492.7 ms | 114.5 ms | 0.500 | 12.00 |
+| 2 | 1016.8 | ±117.3 | 314.4 ms | 62.4 ms | 0.420 | 4.50 |
+| 3 | 1399.3 | ±42.0 | 28.8 ms | 37.2 ms | 0.382 | 3.11 |
+| 4 | 1599.7 | ±22.9 | 39.9 ms | 82.3 ms | 0.383 | 1.50 |
 
 (Full table with target rate, the step each X(N) was reached on, and non-2xx fraction:
 `results/stepped_series_notes.md`.)
 
 None of the four points are generator-bound (every `X(N)` sits far below `0.9·G ≈ 10,379`, and
-every run's final step still shows achieved rate well under `0.9×` its target — each run stopped
-on genuine saturation), so the CPU-halving contingency the assignment allows for was not needed.
+every run's final step still shows achieved rate well under `0.9×` its target — ratios 0.43 /
+0.43 / 0.58 / 0.76 for N=1..4 — each run stopped on genuine saturation), so the CPU-halving
+contingency the assignment allows for was not needed.
 
-Server p99 (the actual request-handling time, estimated from the Prometheus histogram) never
-exceeds ~125ms at any `N`; client p99 reaches multi-second territory from `N=2` on. That gap —
-followed up in Stage 11 — is queueing *before* the CPU-starved event loop gets to run a request,
-not slow application logic.
+Server p99 (the actual request-handling time, estimated from the Prometheus histogram) stays
+within tens-to-low-hundreds of milliseconds at every `X(N)` point; client p99 at the `X(1)` point
+specifically reaches into the multi-second range (1492.7 ms vs. a server p99 of only 114.5 ms) —
+that gap, followed up in Stage 11, is queueing *before* the CPU-starved event loop gets to run a
+request, not slow application logic. At N=2-4 the `X(N)` points themselves sit before that
+queueing effect sets in (client p99 29-314 ms); it shows up instead in those runs' later,
+post-peak steps.
 
 ## Stage 8 — Diagrams
 
@@ -755,24 +784,26 @@ estimator (rank-interpolation, Q(q) formula) over summed bucket counts:
 
 | target (req/s) | client p99 | server p99 | bucket | max error |
 |---|---|---|---|---|
-| 200 | 29.0 ms | 25.5 ms | (16, 32] ms | ±16 ms |
-| 400 | 44.3 ms | 20.3 ms | (16, 32] ms | ±16 ms |
-| 600 | 33.9 ms | 24.8 ms | (16, 32] ms | ±16 ms |
-| 800 | 2949.2 ms | 202.2 ms | (128, 256] ms | ±128 ms |
-| 1000 | 7306.7 ms | 123.4 ms | (64, 128] ms | ±64 ms |
+| 200 | 29.0 ms | 23.7 ms | (16, 32] ms | ±16 ms |
+| 400 | 33.0 ms | 15.2 ms | (8, 16] ms | ±8 ms |
+| 600 | 1492.7 ms | 114.5 ms | (64, 128] ms | ±64 ms |
+| 800 | 1098.5 ms | 118.3 ms | (64, 128] ms | ±64 ms |
+| 1000 | 2736.7 ms | 127.4 ms | (64, 128] ms | ±64 ms |
 
-At 200-600 req/s client and server p99 track each other closely — negligible queueing. From
-800 req/s on, server p99 barely moves while client p99 explodes: the handler itself isn't
-getting slower, requests are waiting a long time to even start being handled.
+At 200-400 req/s client and server p99 track each other closely — negligible queueing. From
+600 req/s on (the step where `X(1)` is reached), server p99 settles around ~115-130ms while
+client p99 reaches into the multi-second range: the handler itself isn't getting much slower,
+requests are waiting a long time to even start being handled.
 
 ## Stage 10 — Universal Scalability Law fit
 
-Fit against the three `N>1` points (`λ = X(1) = 600.1`):
+Fit against the three `N>1` points (`λ = X(1) = 608.4`):
 
-**σ = 0.189, κ = 0.0161, N\* ≈ 7.10** — the fitted curve tracks the measured points closely
-(predicted X(2)=982.9 vs. measured 966.3; X(3)=1221.1 vs. 1238.8; X(4)=1364.1 vs. 1358.7), and
-`N* > 4` means the system had not yet reached its theoretical throughput optimum at 4 instances —
-consistent with `X(N)` still climbing (sub-linearly) through every measured point.
+**σ = 0.160, κ = 0.0024, N\* ≈ 18.5** — the fitted curve tracks the measured points closely
+(predicted X(2)=1044.1 vs. measured 1016.8; X(3)=1366.5 vs. 1399.3; X(4)=1610.7 vs. 1599.7), and
+`N* > 4` (by a wide margin) means the system is still far from its theoretical throughput optimum
+at 4 instances — consistent with `X(N)` still climbing at a rate close to linear through every
+measured point.
 `results/usl_fit.png` plots the measured `X(N)` with error bars, the fitted curve, and the ideal
 linear-scaling line `λN` — the growing gap between the two is σ and κ's cost made visible.
 
@@ -781,23 +812,29 @@ linear-scaling line `λN` — the growing gap between the two is σ and κ's cos
 **The shared resource capping `X(N)` growth is the `web` container's own `cpus: "0.5"` limit** —
 not the database, not the host, and not the generator:
 
-- `docker stats` at the step where `X(4)` was reached: all four `web` containers sit at
-  **~48-52% CPU** (docker's CPU% is a fraction of one whole host core, so this *is* their 0.5-core
-  quota, fully consumed), `db` sits at only **~26-29%**, `nginx` at **~15-20%** — on a 10-CPU
-  Docker Desktop VM with plenty of headroom left over (4×0.5=2 cores claimed out of 10).
+- `docker stats` at the step where `X(4)=1599.7` was reached: all four `web` containers sit at
+  **~35-53% CPU** (docker's CPU% is a fraction of one whole host core, so this is the container
+  consuming close to its full 0.5-core quota — the cgroup limit, not a coincidence), `db` sits at
+  only **~28-30%**, `nginx` at **~20-22%** — on a 10-CPU Docker Desktop VM with plenty of headroom
+  left over (4×0.5=2 cores claimed out of 10).
 - **М3 confirms it directly**: `results/m3_throttling_vs_rate.png` shows the cgroup
-  throttled-period fraction jumping from near 0 to 80-100% at almost exactly the target rate
-  where each run's throughput plateaus — ~600 req/s for `N=1` (matching `X(1)`) and ~1400 req/s
-  for `N=4` — for both instance counts.
-- The generator's own ceiling, **G=11,532.5 req/s** (Stage 6), is **8.5×** the measured `X(4)` —
-  nowhere close to its own limit at any tested load level, ruling it out.
-- Server-side latency staying flat (Stage 9) while client latency explodes is exactly what CPU
-  throttling produces (requests queue for withheld CPU time), not what a saturated
-  `DB_POOL_SIZE=10` would produce (which would show up as slow *database* time inside the
-  handler, raising server p99 too).
+  throttled-period fraction jumping from near 0 to roughly 70-100% at almost exactly the target
+  rate where each run's throughput plateaus — ~600 req/s for `N=1` (matching `X(1)`) and
+  ~1800-2000 req/s for `N=4` (just past `X(4)`'s own step) — for both instance counts.
+- The generator's own ceiling, **G=11,532.5 req/s** (Stage 6), is over **7×** the measured
+  `X(4)=1599.7`. This bounds the generator's raw sending capacity (measured against `/noop`,
+  near-zero latency) rather than its thread-pool concurrency at higher per-request latency, but
+  the client p99 actually observed at every `X(N)` point (29-1493 ms) is comfortably inside what
+  that pool can sustain, so the large margin still supports ruling the generator out here.
+- Server-side latency staying comparatively flat (Stage 9) while client latency diverges from
+  `N=1` onward is exactly what CPU throttling produces (requests queue for withheld CPU time),
+  not what a saturated `DB_POOL_SIZE=10` would produce (which would show up as slow *database*
+  time inside the handler, raising server p99 too).
 
-Raising `X(N)` further needs a higher per-`web`-instance CPU limit; the database and the
-generator are not limiting factors at any of the measured points.
+Raising `X(N)` further needs a higher per-`web`-instance CPU limit; the database is not a
+limiting factor at any of the measured points, and the generator's large margin makes it an
+unlikely one too, though that margin narrows at higher per-request latency than anything observed
+here.
 
 ## Rejected approaches (Lab 2)
 
